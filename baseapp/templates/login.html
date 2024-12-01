@@ -1,0 +1,19 @@
+<!-- login.html -->
+{% extends 'template_base.html' %}
+
+{% block title %}ログイン{% endblock %}
+
+{% block header %}{% endblock %} 
+
+{% block contents %}
+<h1 style="text-align: center; margin-top: 50px;">ログイン</h1>
+
+<div style="text-align: center;">
+    <form method="post">
+        {% csrf_token %}
+        
+        {{ form.as_p }} 
+        <button type="submit" class="btn-primary btn-sm">ログイン</button>
+    </form>
+</div>
+{% endblock %}

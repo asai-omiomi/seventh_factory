@@ -1,0 +1,239 @@
+<!-- info.html -->
+
+{% extends 'template_base.html' %}
+
+{% block title %}情報一覧{% endblock %}
+
+{% block contents %}
+
+<form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
+    {% csrf_token %}
+    <p>
+        {{ calendar_form.date }}
+        <button class="btn-sm" type="submit" name="change_date" value="0">更新</button>
+    </p>
+
+    <div class="mb-3">
+        <h3>お弁当</h3>
+        <p>食数:{{lunch_info.total_count}}
+            (スタッフ:{{lunch_info.staff_count}}、利用者:{{lunch_info.customer_count}})</p>
+        <ul>
+            {% for area, info in lunch_info.by_area.items %}
+            {% if info.count > 0 %}
+            <li>{{ area }}: {{ info.count }}個({{ info.name|join:', ' }})</li>
+            {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+
+    <h3>全体情報</h3>
+    <table class="table table-bordered">
+        <thead class="table-header">
+            <tr>
+                <th>場所</th>
+                <th>スタッフ</th>
+                <th>利用者</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for entry in info_by_place %}
+            {% if entry.staff_cusotmer_list %}
+
+            {% with entry.staff_cusotmer_list|length as rowspan %}
+            {% for staff, customer in entry.staff_cusotmer_list %}
+            {% if staff or customer %}
+            {% if forloop.first %}
+            <tr>
+                <td rowspan="{{ rowspan }}">{{ entry.work_place }}</td>
+                <td>
+                    {% if staff %}
+                    <span class="table-name-width">{{ staff.name }}</span>
+                    {{ staff.time }}
+                    {{ staff.eats_lunch_here }}
+                    {% endif %}
+                </td>
+                <td>
+                    {% if customer %}
+                    <span class="table-name-width">{{ customer.name }}</span>
+                    {{ customer.time }}
+                    {{ customer.eats_lunch_here }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td>
+                    {% if staff %}
+                    <span class="table-name-width">{{ staff.name }}</span>
+                    {{ staff.time }}
+                    {{ staff.eats_lunch_here }}
+                    {% endif %}
+                </td>
+                <td>
+                    {% if customer %}
+                    <span class="table-name-width">{{ customer.name }}</span>
+                    {{ customer.time }}
+                    {{ customer.eats_lunch_here }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endif %}
+            {% endif %}
+            {% endfor %}
+            {% endwith %}
+            {% else %}
+            <!-- スタッフも利用者もいない場合 -->
+            <tr>
+                <td>{{ entry.work_place }}</td>
+                <td></td>
+                <td></td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2 id="customers_info">利用者情報</h2>
+    <table class="table table-bordered table-striped align-middle">
+        <thead class="table-header text-center">
+            <tr>
+                <th>利用者名</th>
+                <th>勤務</th>
+                <th>勤務地</th>
+                <th>現在</th>
+                <th>お弁当</th>
+                <th>朝</th>
+                <th>帰り</th>
+                {% if request.user.is_superuser %}
+                <th></th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for customer in info_by_customer %}
+            <tr>
+                <td class="text-center">{{ customer.name }}</td>
+                <td class="text-center">{{ customer.status }}</td>
+
+                <td>
+                    {% for place_and_time in customer.places_and_times %}
+                    ・{{place_and_time.place}}
+                    {% if place_and_time.time %}
+                        <br>&nbsp;{{ place_and_time.time }}
+                    {% endif %}
+                    {% if not forloop.last %}<br>{% endif %}
+                    {% endfor %}
+                </td>
+                <td class="text-center">
+
+                    {{customer.current_status}}<br>
+                    {% if customer.current_status %}
+                        <button 
+                            type="submit" 
+                            class="btn-sm mt-2 me-1" 
+                            name="prev_status" 
+                            value="{{ customer.id }}"
+                            
+                            {% if customer.current_status == "出勤前"%}disabled{% endif %}
+                            >
+                            戻す
+                        </button>                    
+
+                    
+                        <button 
+                            type="submit" 
+                            class="btn-sm mt-2" 
+                            name="next_status" 
+                            value="{{ customer.id }}"
+                            {% if customer.current_status == "退勤済"%}disabled{% endif %}  
+                            >
+                            次へ
+                            
+                        </button>   
+                    {% endif %}       
+                </td>
+                <td class="text-center">
+                    {{customer.lunch | linebreaksbr }}
+                </td>
+                <td>
+                    {{customer.morning_transport | linebreaksbr}}
+                </td>
+                <td>
+                    {{customer.return_transport | linebreaksbr}}
+                </td>
+                {% if request.user.is_superuser %}
+                <td class="text-center">
+                    <button class="btn-sm" type="submit" name="edit_customer" value="{{ customer.id }}">
+                        編集
+                    </button>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>スタッフ情報</h2>
+    <table class="table table-bordered table-striped align-middle">
+        <thead class="table-header">
+            <tr class="text-center">
+                <th>スタッフ名</th>
+                <th>勤務</th>
+                <th>勤務地</th>
+                <th>お弁当</th>
+                <th>送迎(朝)</th>
+                <th>送迎(帰り)</th>
+                {% if request.user.is_superuser %}
+                <th></th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for staff in info_by_staff %}
+            <tr>
+                <td class="text-center">{{ staff.name }}</td>
+                <td class="text-center">{{ staff.status }}</td>
+                <td>
+                    {% for place_and_time in staff.places_and_times %}
+                    ・{{place_and_time.place}}
+                    {% if place_and_time.time %}
+                        <br>&nbsp;{{ place_and_time.time }}
+                    {% endif %}
+                    {% if not forloop.last %}<br>{% endif %}
+                    {% endfor %}
+                </td>
+                <td class="text-center">
+                    {{staff.lunch | linebreaksbr}}
+                </td>
+                <td>
+                    
+                    {% for pickup_info in staff.pickup_list %}
+                    <span class="table-name-width">・{{pickup_info.name}}</span>
+                    {{pickup_info.time}}&nbsp;&nbsp;{{pickup_info.car}}
+                    {% if not forloop.last %}<br>{% endif %}
+                    {% endfor %}
+                    
+                </td>
+                <td>
+                    {% for dropoff_info in staff.dropoff_list %}
+                    <span class="table-name-width">・{{dropoff_info.name}}</span>
+                    {{dropoff_info.time}}&nbsp;&nbsp;{{dropoff_info.car}}
+                    {% if not forloop.last %}<br>{% endif %}
+                    {% endfor %}
+                </td>
+                {% if request.user.is_superuser %}
+                <td class="text-center">
+                    <button class="btn-sm" type="submit" name="edit_staff" value="{{staff.id}}">
+                        編集
+                    </button>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</form>
+
+{% endblock %}

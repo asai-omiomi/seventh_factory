@@ -1,0 +1,25 @@
+<!-- info_no_data.html -->
+
+{% extends 'template_base.html' %}
+
+{% block title %}情報一覧{% endblock %}
+
+{% block contents %}
+
+<form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
+    {% csrf_token %}
+    <p>
+        {{ calendar_form.date }}
+        <button type="submit" name="change_date" value="0">更新</button>
+    </p>
+
+    <h2>データが存在しません</h2>
+
+    <button id="id_create_data" type="submit" name="create_data"
+        value="0">
+        データを作成する
+    </button>    
+
+</form>
+
+{% endblock %}

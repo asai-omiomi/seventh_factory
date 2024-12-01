@@ -1,0 +1,26 @@
+body{
+    margin-left: 20vw;
+    margin-right: 20vw;
+}
+
+.nav-link-custom{
+    color: white !important;
+}
+
+.table-header {
+    background-color: #329721;
+    color: white;
+}
+
+.table-name-width{
+    min-width: 40px;
+    display: inline-block;
+}
+
+.work-fields{
+    margin: 15px 0;
+}
+
+.pickup-fields, .dropoff-fields{
+    margin-left: 20px;
+}

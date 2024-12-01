@@ -1,0 +1,49 @@
+<!-- customer.html -->
+
+{% extends 'template_base.html' %}
+
+{% block title %}利用者情報{% endblock %}
+
+{% block contents %}
+
+<h1>利用者情報</h1>
+
+<form action="{% url 'config_customer_dispatch' %}" method="post">
+    {% csrf_token %}
+
+    <button class="mt-3 mb-3" type="submit" name="create" value="0">新規登録</button>
+
+    <table class="table table-bordered">
+        <thead class="table-header">
+            <tr>
+                <th>並び替え</th>
+                <th>名前</th>
+                <th>設定</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            {% for customer in customers %}
+            <tr>
+                <td>
+                    <button type="submit" name="up" value="{{ customer.pk }}">↑</button>
+                    <button type="submit" name="down" value="{{ customer.pk }}">↓</button>
+                </td>
+
+                <td>
+                    {{ customer.name }}
+                </td>
+                <td>
+                    <button type="submit" name="update" value="{{ customer.pk }}">編集</button>
+
+                    <button type="submit" name="delete" value="{{ customer.pk }}"
+                        onclick="return confirm('削除しますか？');">削除</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</form>
+
+{% endblock %}

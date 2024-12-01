@@ -1,0 +1,28 @@
+<header>
+  <nav class="my-3" style="width: 100%; background-color: #329721;">
+    <p class="pt-2 ps-2 mb-0" style="color:white; font-size:1.2em">SEVENTH FACTORY</p>
+    <ul class="d-flex py-1 ps-1" style="list-style: none;">
+      {% if request.user.is_superuser %}
+      <li class="nav-item">
+        <a class="nav-link nav-link-custom" href="{% url 'info_today' %}">ホーム</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link nav-link-custom" href="{% url 'customer' %}">利用者情報</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link nav-link-custom" href="{% url 'staff' %}">スタッフ情報</a>
+      </li>
+      {% endif %}
+      <li class="nav-item ms-auto">
+        <a href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
+          class="nav-link nav-link-custom">
+          ログアウト
+        </a>
+
+        <form id="logout-form" action="{% url 'logout' %}" method="POST" style="display: none;">
+          {% csrf_token %}
+        </form>
+      </li>
+    </ul>
+  </nav>
+</header>
