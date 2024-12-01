@@ -7,7 +7,7 @@ databases:
 
 services:
   - type: web
-    name: seventhsystem
+    name: seventh_system
     env: python
     region: singapore
     buildCommand: './build.sh'
