@@ -1,9 +1,9 @@
 databases:
-  - name: seventh_system_db
+  - name: django_render_db
     region: singapore
     plan: free
-    databaseName: seventh_system_db
-    user: seventh_system_user
+    databaseName: django_render_db
+    user: django_user
 
 services:
   - type: web
@@ -18,7 +18,7 @@ services:
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: seventh_system_db
+          name: django_render_db
           property: connectionString
       - key: SECRET_KEY
         generateValue: true
