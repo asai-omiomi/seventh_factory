@@ -65,3 +65,9 @@ select {
   height: 22px;
   transform: translateY(-1.5px);
 }
+
+.transport_labels{
+  width: 90px;
+  text-align: right;
+  margin-top: 8px;
+}

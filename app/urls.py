@@ -7,7 +7,7 @@ urlpatterns = [
     path('', views.IndexView.as_view(), name='index'),
 
     path("login/", LoginView.as_view(template_name="app/login.html"), name="login"),
-    path('logout/', LogoutView.as_view(next_page='/login/'), name='logout'),
+    path('logout/', LogoutView.as_view(), name='logout'),
 
     path('info_today/', views.info_today, name='info_today'),  
     path('info/<str:work_date>/', views.info, name='info'),    

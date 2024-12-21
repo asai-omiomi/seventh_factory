@@ -137,4 +137,4 @@ STATICFILES_DIRS = (
 
 LOGIN_URL = "/login/"  # ログインページ
 LOGIN_REDIRECT_URL = "/info_today"  # ログイン後のリダイレクト先
-LOGOUT_REDIRECT_URL = "/"  # ログアウト後のリダイレクト先
+LOGOUT_REDIRECT_URL = "/login/"  # ログアウト後のリダイレクト先
