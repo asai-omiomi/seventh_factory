@@ -1,0 +1,30 @@
+{% extends 'app/template_base.html' %}
+
+{% load static %}
+
+{% block title %}セブンスファクトリー業務システム{% endblock %}
+
+{% block header %}{% endblock %} 
+
+{% block contents %}
+
+<h1 style="text-align: center; margin: 100px 0 50px 0;">SEVENTH FACTORY 業務システム</h1>
+
+
+
+
+{% if not user.is_authenticated %}
+<form action="{% url 'login' %}" method="get">
+    <div style="text-align: center;">
+        <button class="btn-sm" type="submit" class="btn-primary btn-sm">ログイン</button>
+    </div>
+</form>    
+{% else %}
+<form action="{% url 'info_today' %}" method="get">
+    <div style="text-align: center;">
+        <button class="btn-sm" type="submit" class="btn-primary btn-sm">トップページへ</button>
+    </div>
+</form>   
+{% endif %}
+
+{% endblock %}

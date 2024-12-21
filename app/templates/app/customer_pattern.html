@@ -1,0 +1,168 @@
+<!-- customer_pattern.html -->
+{% extends 'app/template_base.html' %}
+
+{% block title %}利用者情報設定{% endblock %}
+
+{% block contents %}
+
+
+
+<h1>利用者情報設定</h1>
+
+<form id="form" action="{% url 'config_customer_save' customer_id=customer_id %}" method="post">
+    {% csrf_token %}
+
+    <div class="mb-4">
+        <label for="{{ form.name.id_for_label }}">利用者名</label>
+        {{ form.name }}
+    </div>
+
+    <h2>勤務パターン</h2>
+
+    <div class="mt-3 mb-3">
+        <div>
+            <label for="{{ form.morning_transport_means.id_for_label }}">朝の交通手段</label>
+            {{ form.morning_transport_means }}
+        </div>
+        <div class="pickup-fields">
+            <div>
+                <label for="{{ form.pickup_place.id_for_label }}">場所</label>
+                {{ form.pickup_place }}
+            </div>
+            <div>
+                <label for="{{ form.pickup_staff.id_for_label }}">送迎スタッフ</label>
+                {{ form.pickup_staff }}
+            </div>
+            <div>
+                <label for="{{ form.pickup_time.id_for_label }}">時間</label>
+                {{ form.pickup_time }}
+            </div>
+            <div>
+                <label for="{{ form.pickup_car.id_for_label }}">送迎車</label>
+                {{ form.pickup_car }}
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-3 mb-3">
+        <div>
+            <label for="{{ form.return_transport_means.id_for_label }}">帰りの交通手段</label>
+            {{ form.return_transport_means }}
+        </div>
+        <div class="dropoff-fields">
+            <div>
+                <label for="{{ form.dropoff_place.id_for_label }}">場所</label>
+                {{ form.dropoff_place }}
+            </div>
+            <div>
+                <label for="{{ form.dropoff_staff.id_for_label }}">送迎スタッフ</label>
+                {{ form.dropoff_staff }}
+            </div>
+            <div>
+                <label for="{{ form.dropoff_time.id_for_label }}">時間</label>
+                {{ form.dropoff_time }}
+            </div>
+            <div>
+                <label for="{{ form.dropoff_car.id_for_label }}">送迎車</label>
+                {{ form.dropoff_car }}
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-3 mb-3">
+        <label for="{{ form.work_status_mon.id_for_label }}">月</label>
+        {{ form.work_status_mon }}
+        <label for="{{ form.work_status_tue.id_for_label }}">火</label>
+        {{ form.work_status_tue }}
+        <label for="{{ form.work_status_wed.id_for_label }}">水</label>
+        {{ form.work_status_wed }}
+        <label for="{{ form.work_status_thu.id_for_label }}">木</label>
+        {{ form.work_status_thu }}
+        <label for="{{ form.work_status_fri.id_for_label }}">金</label>
+        {{ form.work_status_fri }}
+        <label for="{{ form.work_status_sat.id_for_label }}">土</label>
+        {{ form.work_status_sat }}
+        <label for="{{ form.work_status_sun.id_for_label }}">日</label>
+        {{ form.work_status_sun }}
+    </div>
+
+    <div class="mt-3 mb-3">
+        <label for="{{ form.lunch.id_for_label }}">お弁当</label>
+        {{ form.lunch }}
+    </div>
+
+    <div class="work-fields mt-3 mb-3">
+        <div id="work1" class="work-section">
+            勤務１
+            {{ form.work1_start_time }}
+            ～
+            {{ form.work1_end_time }}
+            {{ form.work1_place }}
+            <label class="eat-lunch-at">
+                <input type="radio" name="eat_lunch_at" value="1" {% if form.instance.eat_lunch_at == 1 %}checked{% endif %}>
+                昼食をここで食べる                
+            </label>
+            <button type=button class="remove-button btn-sm">削除</button> 
+        </div>
+
+        <div id="work2" class="work-section" 
+        {% if not form.work2_place.value %}
+        style="display: none;"
+        {% endif %}
+        >
+            勤務２
+            {{ form.work2_start_time }}
+            ～
+            {{ form.work2_end_time }}
+            {{ form.work2_place }}
+            <label class="eat-lunch-at">
+                <input type="radio" name="eat_lunch_at" value="2" {% if form.instance.eat_lunch_at == 2 %}checked{% endif %}>
+                昼食をここで食べる
+            </label>
+            <button type=button class="remove-button btn-sm">削除</button>
+        </div>
+        <div id="work3" class="work-section" 
+        {% if not form.work3_place.value %}
+        style="display: none;"
+        {% endif %}
+        >
+            勤務３
+            {{ form.work3_start_time }}
+            ～
+            {{ form.work3_end_time }}
+            {{ form.work3_place }}
+            <label class="eat-lunch-at">
+                <input type="radio" name="eat_lunch_at" value="3" {% if form.instance.eat_lunch_at == 3 %}checked{% endif %}>
+                昼食をここで食べる
+            </label>
+            <button type=button class="remove-button btn-sm">削除</button>
+        </div>
+        <div id="work4" class="work-section" 
+        {% if not form.work4_place.value %}
+        style="display: none;"
+        {% endif %}
+        >
+            勤務４
+            {{ form.work4_start_time }}
+            ～
+            {{ form.work4_end_time }}
+            {{ form.work4_place }}
+            <label class="eat-lunch-at">
+                <input type="radio" name="eat_lunch_at" value="4" {% if form.instance.eat_lunch_at == 4 %}checked{% endif %}>
+                昼食をここで食べる
+            </label>
+            <button type=button class="remove-button btn-sm">削除</button>
+        </div>
+        <button type=button id="add-button" class="btn-sm mt-2">勤務を追加</button>
+    </div>
+
+    <button class="btn-sm" type="submit" name="action" value="save">保存</button>
+    <button class="btn-sm" type="submit" name="action" value="cancel" formnovalidate>キャンセル</button>
+</form>
+
+<script>
+    setupToggleTransportEventListener();
+    setupToggleLunchEventListener();
+    setupFormValidation();
+</script>
+{% endblock %}
