@@ -657,13 +657,7 @@ def config_work_update_staff(request, staff_id, work_date):
 
         form = StaffWorkForm(request.POST, instance=staff_work)
 
-        if form.is_valid():
-            StaffWorkModel.objects.filter(staff_id=staff_id, work_date=work_date).delete()
-            staff_work = form.save(commit=False)  # まずはコミットせずにインスタンスを取得
-            staff_work.work_date = work_date  # work_dateを設定
-            staff_work.save()  # インスタンスを保存
-            return redirect('info', work_date)
-        else:
+        if not form.is_valid():
             # フォームが無効な場合、エラーメッセージと共に再レンダリング
             print("エラー内容:", form.errors)
             return render(request, 'app/staff_date_work.html', {
@@ -672,6 +666,50 @@ def config_work_update_staff(request, staff_id, work_date):
                 'staff_name':staff.name,
                 'work_date': work_date,
             })
+        
+        StaffWorkModel.objects.filter(staff_id=staff_id, work_date=work_date).delete()
+        staff_work = form.save(commit=False)  # まずはコミットせずにインスタンスを取得
+        staff_work.work_date = work_date  # work_dateを設定
+        staff_work.save()  # インスタンスを保存
+
+        if request.POST.get('pattern_change_is_checked') == 'on':
+            # パターンを上書き
+            weekday_number = datetime.strptime(work_date, "%Y-%m-%d").date().weekday()
+            if weekday_number == 0:
+                staff.work_status_mon = staff_work.work_status
+            elif weekday_number == 1:
+                staff.work_status_tue = staff_work.work_status
+            elif weekday_number == 2:
+                staff.work_status_wed = staff_work.work_status        
+            elif weekday_number == 3:
+                staff.work_status_thu = staff_work.work_status
+            elif weekday_number == 4:
+                staff.work_status_fri = staff_work.work_status       
+            elif weekday_number == 5:
+                staff.work_status_sat = staff_work.work_status 
+            elif weekday_number == 6:
+                staff.work_status_sun = staff_work.work_status
+
+            if staff_work.work_status == StaffWorkStatusEnum.ON.value:
+                # 出勤のときだけ更新
+                staff.work1_start_time = staff_work.work1_start_time
+                staff.work1_end_time = staff_work.work1_end_time
+                staff.work1_place = staff_work.work1_place
+                staff.work2_start_time = staff_work.work2_start_time
+                staff.work2_end_time = staff_work.work2_end_time
+                staff.work2_place = staff_work.work2_place
+                staff.work3_start_time = staff_work.work3_start_time
+                staff.work3_end_time = staff_work.work3_end_time
+                staff.work3_place = staff_work.work3_place
+                staff.work4_start_time = staff_work.work4_start_time
+                staff.work4_end_time = staff_work.work4_end_time
+                staff.work4_place = staff_work.work4_place
+                staff.lunch = staff_work.lunch
+                staff.eat_lunch_at = staff_work.eat_lunch_at
+
+            staff.save()        
+        return redirect('info', work_date)
+
     else: # cancel
         return redirect('info', work_date)
        
@@ -723,13 +761,7 @@ def config_work_update_customer(request, customer_id, work_date):
 
         form = CustomerWorkForm(request.POST, instance=customer_work)
 
-        if form.is_valid():
-            CustomerWorkModel.objects.filter(customer_id=customer_id, work_date=work_date).delete()
-            customer_work = form.save(commit=False)  # まずはコミットせずにインスタンスを取得
-            customer_work.work_date = work_date
-            form.save()
-            return redirect('info', work_date)
-        else:
+        if not form.is_valid():
             # フォームが無効な場合、エラーメッセージと共に再レンダリング
             print("エラー内容:", form.errors)
             return render(request, 'app/customer_date_work.html', {
@@ -738,6 +770,61 @@ def config_work_update_customer(request, customer_id, work_date):
                 'customer_name':customer.name,
                 'work_date': work_date
             })
+        
+        CustomerWorkModel.objects.filter(customer_id=customer_id, work_date=work_date).delete()
+        customer_work = form.save(commit=False)  # まずはコミットせずにインスタンスを取得
+        customer_work.work_date = work_date
+        form.save()
+
+        if request.POST.get('pattern_change_is_checked') == 'on':
+            # パターンを上書き
+            weekday_number = datetime.strptime(work_date, "%Y-%m-%d").date().weekday()
+            if weekday_number == 0:
+                customer.work_status_mon = customer_work.work_status
+            elif weekday_number == 1:
+                customer.work_status_tue = customer_work.work_status
+            elif weekday_number == 2:
+                customer.work_status_wed = customer_work.work_status        
+            elif weekday_number == 3:
+                customer.work_status_thu = customer_work.work_status
+            elif weekday_number == 4:
+                customer.work_status_fri = customer_work.work_status       
+            elif weekday_number == 5:
+                customer.work_status_sat = customer_work.work_status 
+            elif weekday_number == 6:
+                customer.work_status_sun = customer_work.work_status
+
+            if customer_work.work_status == CustomerWorkStatusEnum.OFFICE.value:
+                # 通所のときだけ更新
+                customer.morning_transport_means = customer_work.morning_transport_means
+                customer.pickup_place = customer_work.pickup_place
+                customer.pickup_staff = customer_work.pickup_staff
+                customer.pickup_time = customer_work.pickup_time
+                customer.pickup_car = customer_work.pickup_car
+                customer.return_transport_means = customer_work.return_transport_means
+                customer.dropoff_place = customer_work.dropoff_place
+                customer.dropoff_staff = customer_work.dropoff_staff
+                customer.dropoff_time = customer_work.dropoff_time
+                customer.dropoff_car = customer_work.dropoff_car
+                customer.work1_start_time = customer_work.work1_start_time
+                customer.work1_end_time = customer_work.work1_end_time
+                customer.work1_place = customer_work.work1_place
+                customer.work2_start_time = customer_work.work2_start_time
+                customer.work2_end_time = customer_work.work2_end_time
+                customer.work2_place = customer_work.work2_place
+                customer.work3_start_time = customer_work.work3_start_time
+                customer.work3_end_time = customer_work.work3_end_time
+                customer.work3_place = customer_work.work3_place
+                customer.work4_start_time = customer_work.work4_start_time
+                customer.work4_end_time = customer_work.work4_end_time
+                customer.work4_place = customer_work.work4_place
+                customer.lunch = customer_work.lunch
+                customer.eat_lunch_at = customer_work.eat_lunch_at
+
+            customer.save()
+
+        return redirect('info', work_date)
+
     else: # cancel
         return redirect('info', work_date)
 
