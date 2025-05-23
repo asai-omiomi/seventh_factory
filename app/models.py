@@ -1,6 +1,7 @@
 # models.py
 from django.db import models
 from enum import Enum
+from django.contrib.auth.models import User
 
 WORK_SESSION_COUNT = 4
 
@@ -600,7 +601,30 @@ class PlaceRemarksModel(models.Model):
 
     remarks = models.CharField(
         max_length=100,
-        blank=False,
+        blank=True,
         null=False,
         default=""
     )
+
+    def __str__(self):
+        return f'{self.place} - {self.work_date}'
+
+class LogModel(models.Model):
+    dateTime = models.DateTimeField(auto_now_add=True)
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="logs"
+    )
+
+    text = models.CharField(
+        max_length=255,
+        blank=True,
+        default=""
+    )
+
+    def __str__(self):
+        return f'{self.dateTime} - {self.user.username} - {self.text}'
+
+

@@ -48,11 +48,32 @@ function setupToggleWorkStatusEventListener() {
 }
 
 
+// function toggleFieldsByLunch() {
+//     const lunch = document.getElementById('id_lunch');
+//     const show = (lunch.value == '0' || lunch.value == '1');
+
+//     toggleFieldsByName('.eat-lunch-at', show);
+// }
+
 function toggleFieldsByLunch() {
     const lunch = document.getElementById('id_lunch');
     const show = (lunch.value == '0' || lunch.value == '1');
+    const fields = document.querySelectorAll('.eat-lunch-at');
 
-    toggleFieldsByName('.eat-lunch-at', show);
+    // 前の状態が非表示で、今表示する場合のみ既定の選択を行う
+    fields.forEach(field => {
+        const wasHidden = field.style.display === 'none';
+
+        toggleField(field, show);
+
+        if (show && wasHidden) {
+            // 勤務1のラジオボタン
+            const radio = field.querySelector('input[type="radio"][value="1"]');
+            if (radio) {
+                radio.checked = true;
+            }
+        }
+    });
 }
 
 // ボタンの表示/非表示を管理

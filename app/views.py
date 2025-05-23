@@ -173,6 +173,9 @@ def create_info_by_place(work_date):
             remarks = PlaceRemarksModel(place = work_place, work_date=work_date)
             remarks.remarks="　"
 
+        if not remarks.remarks:
+            remarks.remarks="　"
+
         info_by_place.append({
             'work_place': work_place,
             'staff_cusotmer_list': staff_customer_list,
@@ -218,11 +221,13 @@ def create_info_by_staff(work_date):
             pickup_customers = [customer_work for customer_work in customer_works if customer_work.pickup_staff == staff_work.staff]
             
             for customer in pickup_customers:
+                place_info = f"{customer.pickup_place}" if customer.pickup_place else ""
                 time_info = f"{customer.pickup_time.strftime('%H:%M')}" if customer.pickup_time else ""
                 car_info = f"{customer.pickup_car}" if customer.pickup_car else ""
 
                 pickup_list.append({
                     'name':customer.customer.name,
+                    'place': place_info,
                     'time': time_info,
                     'car': car_info,
                 })
@@ -231,11 +236,13 @@ def create_info_by_staff(work_date):
             dropoff_customers = [customer_work for customer_work in customer_works if customer_work.dropoff_staff == staff_work.staff]
             
             for customer in dropoff_customers:
+                place_info = f"{customer.dropoff_place}" if customer.dropoff_place else ""
                 time_info = f"{customer.dropoff_time.strftime('%H:%M')}" if customer.dropoff_time else ""
                 car_info = f"{customer.dropoff_car}" if customer.dropoff_car else ""
 
                 dropoff_list.append({
                     'name':customer.customer.name,
+                    'place': place_info,
                     'time': time_info,
                     'car': car_info,
                 })
@@ -672,7 +679,7 @@ def config_work_update_staff(request, staff_id, work_date):
         staff_work.work_date = work_date  # work_dateを設定
         staff_work.save()  # インスタンスを保存
 
-        if request.POST.get('pattern_change_is_checked') == 'on':
+        if request.POST.get('change_pattern') == 'on':
             # パターンを上書き
             weekday_number = datetime.strptime(work_date, "%Y-%m-%d").date().weekday()
             if weekday_number == 0:
@@ -776,7 +783,7 @@ def config_work_update_customer(request, customer_id, work_date):
         customer_work.work_date = work_date
         form.save()
 
-        if request.POST.get('pattern_change_is_checked') == 'on':
+        if request.POST.get('change_pattern') == 'on':
             # パターンを上書き
             weekday_number = datetime.strptime(work_date, "%Y-%m-%d").date().weekday()
             if weekday_number == 0:
@@ -833,6 +840,7 @@ def place_remarks(request, place_id, work_date):
     place_remarks = PlaceRemarksModel.objects.filter(place=place, work_date=work_date).first()
     if not place_remarks:
         place_remarks = PlaceRemarksModel(place=place,work_date=work_date)
+
 
     form = PlaceRemarksForm(instance=place_remarks)
     return render(request, 'app/place_remarks.html',{'form':form, 'place':place,'work_date':work_date,'place_remarks': place_remarks,})

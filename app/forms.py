@@ -4,17 +4,19 @@ from .models import StaffModel, StaffWorkModel, CustomerModel, CustomerWorkModel
 import datetime
 
 class PlaceRemarksForm(forms.ModelForm):
+      
+    remarks = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 4,
+            'style': 'display: inline; max-width:800px',
+        }),
+        required=False
+    )
+    
     class Meta:
         model = PlaceRemarksModel
         fields = ['remarks']
-
-        widgets = {
-            'remarks': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 4,
-                'style': 'display: inline; max-width:800px',
-            }), 
-        }
     
 class StaffForm(forms.ModelForm):
     class Meta:

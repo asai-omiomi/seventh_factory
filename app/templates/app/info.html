@@ -8,6 +8,55 @@
 
 {% block contents %}
 
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // スクロール位置の復元
+        const scrollToElementId = sessionStorage.getItem("scrollToElement");
+        if (scrollToElementId) {
+            const targetElement = document.getElementById(scrollToElementId);
+            if (targetElement) {
+                targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+            sessionStorage.removeItem("scrollToElement");  // 位置情報をクリア
+        }
+
+        // 全体情報の作業内容の「編集」ボタンが押されたときの処理
+        document.querySelectorAll("button[name='edit_place_remarks']").forEach(button => {
+            button.addEventListener("click", function() {
+                sessionStorage.setItem("scrollToElement", this.id);  // ボタンのIDを保存
+            });
+        }); 
+
+        // 「戻す」ボタンが押されたときの処理
+        document.querySelectorAll("button[name='prev_status']").forEach(button => {
+            button.addEventListener("click", function() {
+                sessionStorage.setItem("scrollToElement", this.id);  // ボタンのIDを保存
+            });
+        });
+
+        // 「次へ」ボタンが押されたときの処理
+        document.querySelectorAll("button[name='next_status']").forEach(button => {
+            button.addEventListener("click", function() {
+                sessionStorage.setItem("scrollToElement", this.id);  // ボタンのIDを保存
+            });
+        });
+
+        // 利用者の「編集」ボタンが押されたときの処理
+        document.querySelectorAll("button[name='edit_customer']").forEach(button => {
+            button.addEventListener("click", function() {
+                sessionStorage.setItem("scrollToElement", this.id);  // ボタンのIDを保存
+            });
+        });    
+        
+        // スタッフの「編集」ボタンが押されたときの処理
+        document.querySelectorAll("button[name='edit_staff']").forEach(button => {
+            button.addEventListener("click", function() {
+                sessionStorage.setItem("scrollToElement", this.id);  // ボタンのIDを保存
+            });
+        }); 
+    });
+</script>
+
 <form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
     {% csrf_token %}
     <p>
@@ -17,12 +66,12 @@
 
     <div>
         <h3>お弁当</h3>
-        <p>食数:{{lunch_info.total_count}}
-            (スタッフ:{{lunch_info.staff_count}}、利用者:{{lunch_info.customer_count}})</p>
+        <p>食数:{{lunch_info.total_count}}食
+            (スタッフ:{{lunch_info.staff_count}}食、利用者:{{lunch_info.customer_count}}食)</p>
         <ul>
             {% for area, info in lunch_info.by_area.items %}
             {% if info.count > 0 %}
-            <li>{{ area }}: {{ info.count }}個({{ info.name|join:', ' }})</li>
+            <li>{{ area }}: {{ info.count }}食({{ info.name|join:', ' }})</li>
             {% endif %}
             {% endfor %}
         </ul>
@@ -82,7 +131,7 @@
                         <div class="d-flex justify-content-between align-items-start">
                             {{ entry.remarks | linebreaksbr }}
                             {% if request.user.is_superuser %}
-                            <button class="btn-sm text-nowrap" type="submit" name="edit_place_remarks" value="{{ entry.work_place.pk }}">
+                            <button id="edit_place_remarks_btn-{{ customer.id }}" class="btn-sm text-nowrap" type="submit" name="edit_place_remarks" value="{{ entry.work_place.pk }}">
                                 編集
                             </button>
                             {% endif %}
@@ -134,7 +183,7 @@
                         <div class="d-flex justify-content-between align-items-start">
                         {{ entry.remarks | linebreaksbr }}
                         {% if request.user.is_superuser %}
-                        <button class="btn-sm text-nowrap" type="submit" name="edit_place_remarks" value="{{ entry.work_place.pk }}">
+                        <button id="edit_place_remarks_btn-{{ customer.id }}" class="btn-sm text-nowrap" type="submit" name="edit_place_remarks" value="{{ entry.work_place.pk }}">
                             編集
                         </button>
                         {% endif %}
@@ -186,7 +235,8 @@
                                 type="submit" 
                                 class="btn-sm mt-2 me-1" 
                                 name="prev_status" 
-                                value="{{ customer.id }}"
+                                value="{{ customer.id }}" 
+                                id="prev-button-{{ customer.id }}"
                                 
                                 {% if customer.current_status == "出勤前"%}disabled{% endif %}
                                 >
@@ -197,7 +247,8 @@
                                 type="submit" 
                                 class="btn-sm mt-2" 
                                 name="next_status" 
-                                value="{{ customer.id }}"
+                                value="{{ customer.id }}" 
+                                id="next-button-{{ customer.id }}"
                                 
                                 {% if customer.current_status == "退勤済"%}
                                 disabled 
@@ -220,7 +271,7 @@
                     </td>
                     {% if request.user.is_superuser %}
                     <td class="text-center">
-                        <button class="btn-sm text-nowrap" type="submit" name="edit_customer" value="{{ customer.id }}">
+                        <button id="edit-customer_btn-{{ customer.id }}" class="btn-sm text-nowrap" type="submit" name="edit_customer" value="{{ customer.id }}">
                             編集
                         </button>
                     </td>
@@ -268,7 +319,7 @@
                         
                         {% for pickup_info in staff.pickup_list %}
                         <span class="table-name-width">・{{pickup_info.name}}</span>
-                        {{pickup_info.time}}&nbsp;&nbsp;{{pickup_info.car}}
+                        {{pickup_info.place}}&nbsp;&nbsp;{{pickup_info.time}}&nbsp;&nbsp;{{pickup_info.car}}
                         {% if not forloop.last %}<br>{% endif %}
                         {% endfor %}
                         
@@ -276,13 +327,13 @@
                     <td>
                         {% for dropoff_info in staff.dropoff_list %}
                         <span class="table-name-width">・{{dropoff_info.name}}</span>
-                        {{dropoff_info.time}}&nbsp;&nbsp;{{dropoff_info.car}}
+                        {{dropoff_info.place}}&nbsp;&nbsp;{{dropoff_info.time}}&nbsp;&nbsp;{{dropoff_info.car}}
                         {% if not forloop.last %}<br>{% endif %}
                         {% endfor %}
                     </td>
                     {% if request.user.is_superuser %}
                     <td class="text-center">
-                        <button class="btn-sm text-nowrap" type="submit" name="edit_staff" value="{{staff.id}}">
+                        <button id="edit-staff_btn-{{ customer.id }}" class="btn-sm text-nowrap" type="submit" name="edit_staff" value="{{staff.id}}">
                             編集
                         </button>
                     </td>
