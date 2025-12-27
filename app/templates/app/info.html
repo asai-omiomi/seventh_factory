@@ -64,7 +64,7 @@
         <button class="btn-sm" type="submit" name="change_date" value="0">更新</button>
     </p>
 
-    <div>
+    <!-- <div>
         <h3>お弁当</h3>
         <p>食数:{{lunch_info.total_count}}食
             (スタッフ:{{lunch_info.staff_count}}食、利用者:{{lunch_info.customer_count}}食)</p>
@@ -75,14 +75,13 @@
             {% endif %}
             {% endfor %}
         </ul>
-    </div>
+    </div> -->
 
     <h3 class="mt-5">全体情報</h3>
     <div class="table-responsive-md">
         <table class="table table-bordered">
             <thead class="table-header text-center table-success">
                 <tr>
-                    <th style="min-width: 180px;">場所</th>
                     <th style="min-width: 130px;">スタッフ</th>
                     <th style="min-width: 130px;">利用者</th>
                     <th style="min-width: 200px;">作業内容など</th>
@@ -91,6 +90,12 @@
 
             <tbody>
                 {% for entry in info_by_place %}
+                <!-- 場所名 行 -->
+                <tr class="table-secondary">
+                    <td colspan="3" class="fw-bold">
+                        {{ entry.work_place.name }}
+                    </td>
+                </tr>
                 {% if entry.staff_cusotmer_list %}
 
                 {% with entry.staff_cusotmer_list|length as rowspan %}
@@ -98,17 +103,16 @@
                 {% if staff or customer %}
                 {% if forloop.first %}
                 <tr>
-                    <td rowspan="{{ rowspan }}">{{ entry.work_place.name }}</td>
                     <td>
                         {% if staff %}
                         <div>
                             {{ staff.name }}&nbsp;
-                            {% if staff.eats_lunch_here %}
+                            <!-- {% if staff.eats_lunch_here %}
                             <img class="lunch_box_img" src="{% static 'images/lunch_box_icon.jpeg' %}" alt="お弁当">
                             {% if staff.eats_lunch_here == "持参"%}
                             (持参)
                             {% endif %}
-                            {% endif %}
+                            {% endif %} -->
                         </div>
                         <div>{{ staff.time }}</div>
                         {% endif %}
@@ -117,12 +121,12 @@
                         {% if customer %}
                         <div>
                             {{ customer.name }}&nbsp;
-                            {% if customer.eats_lunch_here %}
+                            <!-- {% if customer.eats_lunch_here %}
                             <img class="lunch_box_img" src="{% static 'images/lunch_box_icon.jpeg' %}" alt="お弁当">
                             {% if customer.eats_lunch_here == "持参"%}
                             (持参)
                             {% endif %}
-                            {% endif %}
+                            {% endif %} -->
                         </div>
                         <div>{{ customer.time }}</div>
                         {% endif %}
@@ -144,12 +148,12 @@
                         {% if staff %}
                         <div>
                             {{ staff.name }}&nbsp;
-                            {% if staff.eats_lunch_here %}
+                            <!-- {% if staff.eats_lunch_here %}
                             <img class="lunch_box_img" src="{% static 'images/lunch_box_icon.jpeg' %}" alt="お弁当">
                             {% if staff.eats_lunch_here == "持参"%}
                             (持参)
                             {% endif %}
-                            {% endif %}
+                            {% endif %} -->
                         </div>
                         <div>{{ staff.time }}</div>
                         {% endif %}
@@ -158,12 +162,12 @@
                         {% if customer %}
                         <div>
                             {{ customer.name }}&nbsp;
-                            {% if customer.eats_lunch_here %}
+                            <!-- {% if customer.eats_lunch_here %}
                             <img class="lunch_box_img" src="{% static 'images/lunch_box_icon.jpeg' %}" alt="お弁当">
                             {% if customer.eats_lunch_here == "持参"%}
                             (持参)
                             {% endif %}
-                            {% endif %}
+                            {% endif %} -->
                         </div>
                         <div>{{ customer.time }}</div>
                         {% endif %}
@@ -176,7 +180,6 @@
                 {% else %}
                 <!-- スタッフも利用者もいない場合 -->
                 <tr>
-                    <td>{{ entry.work_place }}</td>
                     <td></td>
                     <td></td>
                     <td>                        
@@ -196,7 +199,7 @@
         </table>
     </div>
 
-    <h2 id="customers_info" class="mt-5" >利用者情報</h2>
+    <!-- <h2 id="customers_info" class="mt-5" >利用者情報</h2>
     <div class="table-responsive">
         <table class="table table-bordered table-striped align-middle">
             <thead class="table-header text-center table-success">
@@ -280,9 +283,9 @@
                 {% endfor %}
             </tbody>
         </table>
-    </div>
+    </div> -->
 
-    <h2 class="mt-5">スタッフ情報</h2>
+    <!-- <h2 class="mt-5">スタッフ情報</h2>
     <div class="table-responsive-md">
         <table class="table table-bordered table-striped align-middle">
             <thead class="table-header table-success">
@@ -342,7 +345,7 @@
                 {% endfor %}
             </tbody>
         </table>
-    </div>
+    </div> -->
 </form>
 
 {% endblock %}

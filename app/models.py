@@ -97,6 +97,12 @@ class CompanyCarModel(models.Model):
         default=''
      )
     
+    test = models.IntegerField(
+        blank = True,
+        null = True,
+        default=1,
+    )
+    
     def __str__(self):
         return self.name
 
