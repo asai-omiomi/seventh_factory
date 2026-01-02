@@ -1,0 +1,32 @@
+<!-- place_remarks_edit.html -->
+
+{% extends 'app/template_base.html' %}
+
+{% block title %}備考{% endblock %}
+
+{% block contents %}
+
+<div class="wrapper">
+    <h1>作業内容など</h1>
+
+    <form action="{% url 'place_remarks_save' place.id work_date %}" method="post">
+        {% csrf_token %}
+
+        <div class="mt-3 mb-3">
+            日付：{{ work_date }}
+        </div>
+        <div class="mt-3 mb-3">
+            場所：{{ place.name }}
+        </div>
+
+        <div class="mb-3">
+            {{ form.remarks }}
+        </div>
+
+
+        <button class="btn-sm" type="submit" name="action" value="save">保存</button>
+        <button class="btn-sm" type="submit" name="action" value="cancel" formnovalidate>キャンセル</button>
+    </form>
+</div>
+
+{% endblock %}

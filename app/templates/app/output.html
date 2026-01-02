@@ -1,0 +1,28 @@
+<!-- output.html -->
+
+{% extends 'app/template_base.html' %}
+
+{% block title %}データ出力{% endblock %}
+
+{% block contents %}
+
+<div class="wrapper">
+    <h1>データ出力</h1>
+
+    <form action="{% url 'output_execute' %}" method="post">
+        {% csrf_token %}
+
+        <div class="mt-3 mb-3">
+            期間:{{start_date.date}}～{{end_date.date}}
+        </div>
+
+        <div>
+            <span>{{ form.target.label }}</span>
+            {{ form.target }}
+        </div>
+
+        <button class="btn-sm mt-3" type="submit"  name="action" value="output">出力する</button>
+
+    </form>
+</div>
+{% endblock %}

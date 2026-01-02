@@ -43,8 +43,10 @@ def info(request, work_date):
     # =========================
     calendar_form = CalendarForm(initial_date=work_date)
 
+    # 全体情報
     info = _build_info(work_date)
 
+    # 送迎情報
     transport_table_rows = _build_transport_table_rows(work_date)
 
     return render(request,'app/info.html',{
@@ -233,15 +235,14 @@ def _build_customer_list(customer_records, place, work_status=None):
     )
     
 def _build_remarks(place=None, work_date=None):
-    if place:
-        qs = PlaceRemarksModel.objects.filter(place=place, work_date=work_date)
-        if qs.exists():
-            prmks = qs[0]  # querysetの先頭を取得
-            return prmks.remarks or "　"
-        else:
-            return "　"
-    else:
+    if not place:
         return ""
+
+    place_remarks = PlaceRemarksModel.objects.filter(place=place, work_date=work_date).first()
+    if place_remarks:
+        return place_remarks.remarks or "　"
+    else:
+        return "　"
 
 
 def _build_staff_customer_list(staff_list, customer_list):
@@ -307,7 +308,7 @@ def info_dispatch(request, work_date):
     assert request.method == 'POST'
     change_date = request.POST.get('change_date')
     create_records = request.POST.get('create_records')
-    edit_place_remarks = request.POST.get('edit_place_remarks')
+    place_remarks_edit = request.POST.get('place_remarks_edit')
     customer_record_edit = request.POST.get('customer_record_edit')
     staff_record_edit = request.POST.get('staff_record_edit')
    
@@ -318,9 +319,9 @@ def info_dispatch(request, work_date):
         work_date = request.POST.get('date')
         _create_records(work_date)
         return redirect('info', work_date)
-    elif edit_place_remarks:
-        place_id = edit_place_remarks
-        return redirect('place_remarks', place_id, work_date)
+    elif place_remarks_edit:
+        place_id = place_remarks_edit
+        return redirect('place_remarks_edit', place_id, work_date)
     elif customer_record_edit:
         customer_id = customer_record_edit
         return redirect('customer_record_edit', 
@@ -795,7 +796,7 @@ def place_remarks_edit(request, place_id, work_date):
 
     return render(
         request, 
-        'app/place_remarks.html',
+        'app/place_remarks_edit.html',
         {
             'form':form,
             'place':place,
@@ -1298,7 +1299,7 @@ def _save_transport_pattern(request, customer, day_value, transport_type):
 
     return True
 
-def export(request):
+def output(request):
 
     today = datetime.now().date()
     first_day_of_last_month = (today.replace(day=1) - relativedelta(months=1))
@@ -1307,33 +1308,38 @@ def export(request):
 
     form = OutputForm()
 
-    return render(request,'app/export.html', {
+    return render(request,'app/output.html', {
         'start_date':start_date,
         'end_date':end_date,
         'form':form
         })
 
-def export_execute(request):
+def output_execute(request):
     form = OutputForm(request.POST)
 
-    dates = request.POST.getlist('date')
-    start_date = dates[0]
-    end_date = dates[1]
+    date_set = request.POST.getlist('date')
+    start_date = date_set[0]
+    end_date = date_set[1]
 
-    if form.is_valid():
-        target = form.cleaned_data['target']
+    if not form.is_valid():
+        return redirect('output')
 
-        if target == 'customer':
-            return exportCustomerWorkData(start_date, end_date)
-        elif target == 'staff':
-            return exportStaffWorkData(start_date, end_date)
+    target = form.cleaned_data['target']
 
-def exportCustomerWorkData(start_date, end_date):
+    if target == 'customer':
+        return _output_customer_records(start_date, end_date)
+    elif target == 'staff':
+        return _output_staff_records(start_date, end_date)
+    else:
+        return redirect('output')
+        
+    
+def _output_customer_records(start_date, end_date):
 
     queryset = CustomerRecordModel.objects.filter(work_date__range=[start_date, end_date]).order_by('customer_id', 'work_date')
 
     response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="customer_work_data.csv"'
+    response['Content-Disposition'] = 'attachment; filename="customer.csv"'
 
     response.write('\ufeff')
 
@@ -1341,42 +1347,25 @@ def exportCustomerWorkData(start_date, end_date):
 
     writer.writerow([
         '利用者名', '日付', '勤務種別', 
+        '勤務1(場所)','勤務1(開始時間)','勤務1(終了時間)',
+        '勤務2(場所)','勤務2(開始時間)','勤務2(終了時間)',
+        '勤務3(場所)','勤務3(開始時間)','勤務3(終了時間)',
         '送迎(朝)', '送迎場所(朝)', '送迎スタッフ(朝)', '送迎時間(朝)', 
         '送迎(帰り)', '送迎場所(帰り)', '送迎スタッフ(帰り)', '送迎時間(帰り)',
-        '昼食', 
-        '勤務1(開始時間)','勤務1(終了時間)','勤務1(場所)'
-        '勤務2(開始時間)','勤務2(終了時間)','勤務2(場所)'
-        '勤務3(開始時間)','勤務3(終了時間)','勤務3(場所)'
+
     ])
 
     for record in queryset:
         writer.writerow([
             record.customer.name,
             record.work_date,
-            record.get_work_status_display(), 
-            record.get_morning_transport_display(), 
-            record.pickup_place,
-            record.pickup_staff.name if record.pickup_staff else '',
-            record.pickup_time.strftime('%H:%M') if record.pickup_time else '',
-            record.get_return_transport_display(),
-            record.dropoff_place,
-            record.dropoff_staff.name if record.dropoff_staff else '',  
-            record.dropoff_time.strftime('%H:%M') if record.dropoff_time else '',
-            record.work1_start_time.strftime('%H:%M') if record.work1_start_time else '',
-            record.work1_end_time.strftime('%H:%M') if record.work1_end_time else '',
-            record.work1_place,
-            record.work2_start_time.strftime('%H:%M') if record.work2_start_time else '',
-            record.work2_end_time.strftime('%H:%M') if record.work2_end_time else '',
-            record.work2_place,
-            record.work3_start_time.strftime('%H:%M') if record.work3_start_time else '',
-            record.work3_end_time.strftime('%H:%M') if record.work3_end_time else '',
-            record.work3_place,
+
         ])
 
     return response
 
 
-def exportStaffWorkData(start_date, end_date):
+def _output_staff_records(start_date, end_date):
     queryset = StaffRecordModel.objects.filter(work_date__range=[start_date, end_date]).order_by('staff_id', 'work_date')
 
     response = HttpResponse(content_type='text/csv')

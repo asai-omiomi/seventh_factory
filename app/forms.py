@@ -32,7 +32,6 @@ class CustomerRecordForm(forms.ModelForm):
             'work_status': forms.Select(attrs={'class': 'work-status'}),        
         }
 
-
 class StaffWorkStatusPatternForm(forms.ModelForm):
     class Meta:
         model = StaffWorkStatusPatternModel

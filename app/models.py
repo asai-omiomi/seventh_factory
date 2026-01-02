@@ -165,11 +165,6 @@ class CustomerRecordModel(models.Model):
         default=CustomerWorkStatusEnum.OFF
     )
 
-    # current_status = models.IntegerField(
-    #     choices=CurrentStatusEnum.choices,
-    #     default=CurrentStatusEnum.BEFORE
-    # )
-
     def __str__(self):
         return f'{self.customer} - {self.work_date}'
     

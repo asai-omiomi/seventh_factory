@@ -21,7 +21,7 @@
         }
 
         // 全体情報の作業内容の「編集」ボタンが押されたときの処理
-        document.querySelectorAll("button[name='edit_place_remarks']").forEach(button => {
+        document.querySelectorAll("button[name='place_remarks_edit']").forEach(button => {
             button.addEventListener("click", function () {
                 sessionStorage.setItem("scrollToElement", this.id);  // ボタンのIDを保存
             });
@@ -154,10 +154,13 @@
                                 <div class="d-flex justify-content-between align-items-start">
                                     {{ info.remarks | linebreaksbr }}
                                     {% if info.place_id != -1 %}
-                                    <button id="edit_place_remarks_btn-{{ info.place_id }}" class="btn-sm text-nowrap"
-                                        type="submit" name="edit_place_remarks" value="{{ info.place_id }}">
-                                        編集
-                                    </button>
+                                    <form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
+                                        {% csrf_token %}
+                                        <button id="edit_place_remarks_btn-{{ info.place_id }}" class="btn-sm text-nowrap"
+                                            type="submit" name="place_remarks_edit" value="{{ info.place_id }}">
+                                            編集
+                                        </button>
+                                    </form>
                                     {% endif %}
                                 </div>
                             </td>
