@@ -1327,78 +1327,294 @@ def output_execute(request):
     target = form.cleaned_data['target']
 
     if target == 'customer':
-        return _output_customer_records(start_date, end_date)
+        return _output_member_records(
+        start_date=start_date,
+        end_date=end_date,
+        record_model=CustomerRecordModel,
+        member_field='customer',
+        session_related_name='customer_session_record',
+        filename='customer.csv',
+        include_transport=True,
+    )
     elif target == 'staff':
-        return _output_staff_records(start_date, end_date)
+        return _output_member_records(
+        start_date=start_date,
+        end_date=end_date,
+        record_model=StaffRecordModel,
+        member_field='staff',
+        session_related_name='staff_session_record',
+        filename='staff.csv',
+        include_transport=False,
+    )
     else:
         return redirect('output')
-        
     
-def _output_customer_records(start_date, end_date):
+def _output_member_records(
+    *,
+    start_date,
+    end_date,
+    record_model,
+    member_field,                 
+    session_related_name,         
+    filename,
+    include_transport=False,
+):
+    qs = (
+        record_model.objects
+        .filter(work_date__range=[start_date, end_date])
+        .select_related(member_field)
+        .prefetch_related(session_related_name)
+        .order_by(f'{member_field}__order', 'work_date')
+    )
 
-    queryset = CustomerRecordModel.objects.filter(work_date__range=[start_date, end_date]).order_by('customer_id', 'work_date')
+    if include_transport:
+        qs = qs.prefetch_related('record_transport')
 
     response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="customer.csv"'
-
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
     response.write('\ufeff')
 
     writer = csv.writer(response)
 
-    writer.writerow([
-        '利用者名', '日付', '勤務種別', 
-        '勤務1(場所)','勤務1(開始時間)','勤務1(終了時間)',
-        '勤務2(場所)','勤務2(開始時間)','勤務2(終了時間)',
-        '勤務3(場所)','勤務3(開始時間)','勤務3(終了時間)',
-        '送迎(朝)', '送迎場所(朝)', '送迎スタッフ(朝)', '送迎時間(朝)', 
-        '送迎(帰り)', '送迎場所(帰り)', '送迎スタッフ(帰り)', '送迎時間(帰り)',
+    # --- ヘッダ ---
+    header = [
+        '名前', '日付', '勤務種別',
+        '勤務1(場所)', '勤務1(開始)', '勤務1(終了)',
+        '勤務2(場所)', '勤務2(開始)', '勤務2(終了)',
+        '勤務3(場所)', '勤務3(開始)', '勤務3(終了)',
+    ]
 
-    ])
-
-    for record in queryset:
-        writer.writerow([
-            record.customer.name,
-            record.work_date,
-
+    if include_transport:
+        header.extend([
+            '送迎(朝)', '送迎場所(朝)', '送迎スタッフ(朝)', '送迎時間(朝)',
+            '送迎(帰り)', '送迎場所(帰り)', '送迎スタッフ(帰り)', '送迎時間(帰り)',
         ])
+
+    writer.writerow(header)
+
+    # --- 本体 ---
+    for record in qs:
+        row = []
+
+        member = getattr(record, member_field)
+
+        row.append(member.name if member else '')
+        row.append(record.work_date)
+        row.append(record.get_work_status_display())
+
+        sessions = list(
+            getattr(record, session_related_name)
+            .all()
+            .order_by('session_no')
+        )
+
+        for i in range(WORK_SESSION_COUNT):
+            if i < len(sessions):
+                s = sessions[i]
+                row.extend([
+                    str(s.place) if s.place else '',
+                    s.start_time.strftime('%H:%M') if s.start_time else '',
+                    s.end_time.strftime('%H:%M') if s.end_time else '',
+                ])
+            else:
+                row.extend(['', '', ''])
+
+        if include_transport:
+            transports = {
+                t.transport_type: t
+                for t in record.record_transport.all()
+            }
+
+            def transport_cols(t):
+                return [
+                    t.get_transport_means_display(),
+                    str(t.place) if t.place else '',
+                    str(t.staff) if t.staff else '',
+                    t.time.strftime('%H:%M') if t.time else '',
+                ]
+
+            row.extend(
+                transport_cols(transports.get(TransportTypeEnum.MORNING))
+                if TransportTypeEnum.MORNING in transports else
+                ['', '', '', '']
+            )
+
+            row.extend(
+                transport_cols(transports.get(TransportTypeEnum.RETURN))
+                if TransportTypeEnum.RETURN in transports else
+                ['', '', '', '']
+            )
+
+        writer.writerow(row)
 
     return response
 
 
-def _output_staff_records(start_date, end_date):
-    queryset = StaffRecordModel.objects.filter(work_date__range=[start_date, end_date]).order_by('staff_id', 'work_date')
+# def _output_customer_records(start_date, end_date):
+#     records = (
+#         CustomerRecordModel.objects
+#         .filter(work_date__range=[start_date, end_date])
+#         .select_related('customer')
+#         .prefetch_related(
+#             'customer_session_record',  
+#             'record_transport',
+#         )
+#         .order_by('customer__order', 'work_date')
+#     )
 
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="staff_work_data.csv"'
+#     response = HttpResponse(content_type='text/csv')
+#     response['Content-Disposition'] = 'attachment; filename="customer.csv"'
+#     response.write('\ufeff')  # BOM
 
-    response.write('\ufeff')
+#     writer = csv.writer(response)
 
-    writer = csv.writer(response)
+#     writer.writerow([
+#         '名前', '日付', '勤務種別',
+#         '勤務1(場所)', '勤務1(開始)', '勤務1(終了)',
+#         '勤務2(場所)', '勤務2(開始)', '勤務2(終了)',
+#         '勤務3(場所)', '勤務3(開始)', '勤務3(終了)',
+#         '送迎(朝)', '送迎場所(朝)', '送迎スタッフ(朝)', '送迎時間(朝)',
+#         '送迎(帰り)', '送迎場所(帰り)', '送迎スタッフ(帰り)', '送迎時間(帰り)',
+#     ])
 
-    writer.writerow([
-        'スタッフ名', '日付', '勤務種別',  
-        '勤務1(開始時間)','勤務1(終了時間)','勤務1(場所)'
-        '勤務2(開始時間)','勤務2(終了時間)','勤務2(場所)'
-        '勤務3(開始時間)','勤務3(終了時間)','勤務3(場所)'
-    ])
+#     for record in records:
+#         row = []
 
-    for record in queryset:
-        writer.writerow([
-            record.staff.name,
-            record.work_date,
-            record.get_work_status_text(), 
-            record.work1_start_time.strftime('%H:%M') if record.work1_start_time else '',
-            record.work1_end_time.strftime('%H:%M') if record.work1_end_time else '',
-            record.work1_place,
-            record.work2_start_time.strftime('%H:%M') if record.work2_start_time else '',
-            record.work2_end_time.strftime('%H:%M') if record.work2_end_time else '',
-            record.work2_place,
-            record.work3_start_time.strftime('%H:%M') if record.work3_start_time else '',
-            record.work3_end_time.strftime('%H:%M') if record.work3_end_time else '',
-            record.work3_place,
-        ])
+#         # --- CustomerModel ---
+#         row.append(record.customer.name if record.customer else '')
 
-    return response
+#         # --- CustomerRecordModel ---
+#         row.append(record.work_date)
+#         row.append(record.get_work_status_display())
+
+#         # --- CustomerSessionRecordModel ---
+#         sessions = list(
+#             record.customer_session_record.all().order_by('session_no')
+#         )
+
+#         for i in range(WORK_SESSION_COUNT):
+#             if i < len(sessions):
+#                 s = sessions[i]
+#                 row.extend([
+#                     str(s.place) if s.place else '',
+#                     s.start_time.strftime('%H:%M') if s.start_time else '',
+#                     s.end_time.strftime('%H:%M') if s.end_time else '',
+#                 ])
+#             else:
+#                 row.extend(['', '', ''])
+
+#         # --- TransportRecordModel ---
+#         transports = {
+#             t.transport_type: t
+#             for t in record.record_transport.all()
+#         }
+
+#         def transport_cols(t):
+#             return [
+#                 t.get_transport_means_display(),
+#                 str(t.place) if t.place else '',
+#                 str(t.staff) if t.staff else '',
+#                 t.time.strftime('%H:%M') if t.time else '',
+#             ]
+
+#         morning = transports.get(TransportTypeEnum.MORNING)
+#         row.extend(transport_cols(morning) if morning else ['', '', '', ''])
+
+#         ret = transports.get(TransportTypeEnum.RETURN)
+#         row.extend(transport_cols(ret) if ret else ['', '', '', ''])
+
+#         writer.writerow(row)
+
+#     return response
+
+# def _output_staff_records(start_date, end_date):
+#     records = (
+#         StaffRecordModel.objects
+#         .filter(work_date__range=[start_date, end_date])
+#         .select_related('staff')
+#         .prefetch_related(
+#             'staff_session_record',  
+#         )
+#         .order_by('staff__order', 'work_date')
+#     )
+
+#     response = HttpResponse(content_type='text/csv')
+#     response['Content-Disposition'] = 'attachment; filename="staff.csv"'
+#     response.write('\ufeff')  # BOM
+
+#     writer = csv.writer(response)
+
+#     writer.writerow([
+#         '名前', '日付', '勤務種別',
+#         '勤務1(場所)', '勤務1(開始)', '勤務1(終了)',
+#         '勤務2(場所)', '勤務2(開始)', '勤務2(終了)',
+#         '勤務3(場所)', '勤務3(開始)', '勤務3(終了)',
+#     ])
+
+#     for record in records:
+#         row = []
+
+#         # --- StaffModel ---
+#         row.append(record.staff.name if record.staff else '')
+
+#         # --- StaffRecordModel ---
+#         row.append(record.work_date)
+#         row.append(record.get_work_status_display())
+
+#         # --- StaffSessionRecordModel ---
+#         sessions = list(
+#             record.staff_session_record.all().order_by('session_no')
+#         )
+
+#         for i in range(WORK_SESSION_COUNT):
+#             if i < len(sessions):
+#                 s = sessions[i]
+#                 row.extend([
+#                     str(s.place) if s.place else '',
+#                     s.start_time.strftime('%H:%M') if s.start_time else '',
+#                     s.end_time.strftime('%H:%M') if s.end_time else '',
+#                 ])
+#             else:
+#                 row.extend(['', '', ''])
+
+#         writer.writerow(row)
+
+#     return response
+
+# def _output_staff_records(start_date, end_date):
+#     queryset = StaffRecordModel.objects.filter(work_date__range=[start_date, end_date]).order_by('staff_id', 'work_date')
+
+#     response = HttpResponse(content_type='text/csv')
+#     response['Content-Disposition'] = 'attachment; filename="staff_work_data.csv"'
+
+#     response.write('\ufeff')
+
+#     writer = csv.writer(response)
+
+#     writer.writerow([
+#         'スタッフ名', '日付', '勤務種別',  
+#         '勤務1(開始時間)','勤務1(終了時間)','勤務1(場所)'
+#         '勤務2(開始時間)','勤務2(終了時間)','勤務2(場所)'
+#         '勤務3(開始時間)','勤務3(終了時間)','勤務3(場所)'
+#     ])
+
+#     for record in queryset:
+#         writer.writerow([
+#             record.staff.name,
+#             record.work_date,
+#             record.get_work_status_text(), 
+#             record.work1_start_time.strftime('%H:%M') if record.work1_start_time else '',
+#             record.work1_end_time.strftime('%H:%M') if record.work1_end_time else '',
+#             record.work1_place,
+#             record.work2_start_time.strftime('%H:%M') if record.work2_start_time else '',
+#             record.work2_end_time.strftime('%H:%M') if record.work2_end_time else '',
+#             record.work2_place,
+#             record.work3_start_time.strftime('%H:%M') if record.work3_start_time else '',
+#             record.work3_end_time.strftime('%H:%M') if record.work3_end_time else '',
+#             record.work3_place,
+#         ])
+
+#     return response
 
 def password_change(request):
     user = request.user  # ログイン中のユーザーを取得
