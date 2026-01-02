@@ -1,0 +1,9 @@
+{% include "app/partials/session_block.html" with forms=session_forms label="勤務セッション" %}
+
+<hr class="toggle-fields my-4">   
+
+{% include "app/partials/transport_block.html" with form=morning_transport_form label="朝の交通手段" details_class="morning_transfer_details" %}
+
+<hr class="toggle-fields my-4">
+
+{% include "app/partials/transport_block.html" with form=return_transport_form label="帰りの交通手段" details_class="return_transfer_details" %}

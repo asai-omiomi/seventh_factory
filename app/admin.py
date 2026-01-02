@@ -1,11 +1,18 @@
 from django.contrib import admin
-from .models import StaffModel,StaffWorkModel,CustomerModel,CustomerWorkModel,WorkPlaceModel,CompanyCarModel,PlaceRemarksModel
+from .models import StaffModel,CustomerModel,StaffRecordModel,CustomerRecordModel,StaffWorkStatusPatternModel, CustomerWorkStatusPatternModel,StaffSessionRecordModel,CustomerSessionRecordModel,StaffSessionPatternModel,CustomerSessionPatternModel,TransportRecordModel,TransportPatternModel,PlaceModel,PlaceRemarksModel
 
 
 admin.site.register(StaffModel)
-admin.site.register(StaffWorkModel)
 admin.site.register(CustomerModel)
-admin.site.register(CustomerWorkModel)
-admin.site.register(WorkPlaceModel)
-admin.site.register(CompanyCarModel)
+admin.site.register(StaffRecordModel)
+admin.site.register(CustomerRecordModel)
+admin.site.register(StaffWorkStatusPatternModel)
+admin.site.register(CustomerWorkStatusPatternModel)
+admin.site.register(StaffSessionRecordModel)
+admin.site.register(CustomerSessionRecordModel)
+admin.site.register(StaffSessionPatternModel)
+admin.site.register(CustomerSessionPatternModel)
+admin.site.register(TransportRecordModel)
+admin.site.register(TransportPatternModel)
+admin.site.register(PlaceModel)
 admin.site.register(PlaceRemarksModel)

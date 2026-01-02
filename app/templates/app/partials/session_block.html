@@ -1,0 +1,11 @@
+<div class="toggle-fields">
+    <p>勤務場所と時間(時間は省略可)</p>
+    {% for form in forms %}
+    <div class="work-section mt-1">
+        勤務{{ forloop.counter }}
+        {{ form.place }}
+        {{ form.start_time }} ～ {{ form.end_time }}
+        
+    </div>                        
+    {% endfor %}
+</div>

@@ -3,111 +3,49 @@ from django.db import models
 from enum import Enum
 from django.contrib.auth.models import User
 
-WORK_SESSION_COUNT = 4
+WORK_SESSION_COUNT = 3
 
-class StaffWorkStatusEnum(Enum):
-    ON = 0
-    OFF = 1
-    OFF_WITH_PAY = 2
+class StaffWorkStatusEnum(models.IntegerChoices):
+    ON              = 1, "出勤"
+    OFF             = 9, "欠勤"
+    OFF_WITH_PAY    = 8, "有給"
 
-STAFF_WORK_STATUS_CHOICES = [
-    (StaffWorkStatusEnum.ON.value,'出勤'),
-    (StaffWorkStatusEnum.OFF.value,'欠勤'),    
-    (StaffWorkStatusEnum.OFF_WITH_PAY.value,'有給'),  
-]
+class CustomerWorkStatusEnum(models.IntegerChoices):
+    OFFICE  = 1, "通所"
+    HOME    = 8, "在宅"
+    OFF     = 9, "休み"
 
-class CustomerWorkStatusEnum(Enum):
-    OFFICE = 0
-    HOME = 1
-    OFF = 2
+class TransportMeansEnum(models.IntegerChoices):
+    TRANSFER    = 1, "送迎"
+    CAR         = 2, "車"
+    BUS         = 3, "バス"
+    BICYCLE     = 4, "自転車"
+    WALK        = 5, "徒歩"
+    MOTORCYCLE  = 6, "バイク"
+    OTHERS      = 9, "その他"
 
-CUSTOMER_WORK_STATUS_CHOICES = [
-    (CustomerWorkStatusEnum.OFFICE.value,'通所'),
-    (CustomerWorkStatusEnum.HOME.value,'在宅'),
-    (CustomerWorkStatusEnum.OFF.value,'欠席'),
-]
+# class CurrentStatusEnum(models.IntegerChoices):
+#     BEFORE      = 0, "通所前"
+#     WORKING     = 1, "通所中"
+#     FINISHED    = 5, "退勤"
+#     HOME        = 8, "在宅"
+#     ABSENT      = 9, "休み"
 
-class TransportMeansEnum(Enum):
-    TRANSFER = 0
-    CAR = 1
-    BUS = 2
-    BICYCLE = 3
-    WALK = 4
-    MOTORCYCLE = 5
-    OTHERS = 6
+class TransportTypeEnum(models.IntegerChoices):
+    MORNING = 1, '朝'
+    RETURN  = 2, '帰り'
 
-TRANSPORT_MEANS_CHOICES = [
-    (TransportMeansEnum.TRANSFER.value, '送迎'),
-    (TransportMeansEnum.CAR.value, '車'),
-    (TransportMeansEnum.BUS.value, 'バス'),
-    (TransportMeansEnum.BICYCLE.value, '自転車'),
-    (TransportMeansEnum.WALK.value, '徒歩'),
-    (TransportMeansEnum.MOTORCYCLE.value, 'バイク'),
-    (TransportMeansEnum.OTHERS.value, 'その他'),   
-]
+class WeekdayEnum(models.IntegerChoices):
+    MON = 1, '月'
+    TUE = 2, '火'
+    WED = 3, '水'
+    THU = 4, '木'
+    FRI = 5, '金'
+    SAT = 6, '土'
+    SUN = 7, '日'
 
-class LunchEnum(Enum):
-    ORDERED_LUNCH_BOX = 0
-    BYO_LUNCH_BOX = 1
-    NO_LUNCH_BOX = 2
-
-LUNCH_CHOICES = [
-    (LunchEnum.ORDERED_LUNCH_BOX.value, '有り(注文)'),
-    (LunchEnum.BYO_LUNCH_BOX.value, '有り(持参)'),
-    (LunchEnum.NO_LUNCH_BOX.value, '無し'), 
-]
-
-def get_lunch_display(lunch_value):
-    if lunch_value == LunchEnum.ORDERED_LUNCH_BOX.value:
-        return "〇"
-
-    elif lunch_value == LunchEnum.BYO_LUNCH_BOX.value:
-        return "〇\n(持参)"     
-
-    elif lunch_value == LunchEnum.NO_LUNCH_BOX.value:
-        return ""    
-    else:
-        return ""
-
-class CurrentStatusEnum(Enum):
-    BEFORE_WORK = 0    #出勤前
-    AFTER_WORK = 5     #退勤後
-
-class WorkPlaceModel(models.Model):
-    name = models.CharField(
-        max_length=20, 
-        blank=True,
-        null=True,
-     )
-
-    area = models.CharField(
-        max_length=20, 
-        blank=True,
-        null=True,
-     )
     
-    def __str__(self):
-        return self.name 
-    
-class CompanyCarModel(models.Model):
-    name = models.CharField(
-        max_length=20, 
-        blank=False,
-        null=False,
-        default=''
-     )
-    
-    test = models.IntegerField(
-        blank = True,
-        null = True,
-        default=1,
-    )
-    
-    def __str__(self):
-        return self.name
-
 class StaffModel(models.Model):
-
     name = models.CharField(
         max_length=20, 
         blank=False,
@@ -119,83 +57,6 @@ class StaffModel(models.Model):
         blank=False, 
         null=False,
     )
-        
-    work_status_mon = models.IntegerField(
-        blank=False, 
-        null=False,
-        choices=STAFF_WORK_STATUS_CHOICES,
-        default=StaffWorkStatusEnum.ON.value
-    )
-
-    work_status_tue = models.IntegerField(
-        blank=False, 
-        null=False,
-        choices=STAFF_WORK_STATUS_CHOICES,
-        default=StaffWorkStatusEnum.ON.value
-    )
-
-    work_status_wed = models.IntegerField(
-        blank=False, 
-        null=False,
-        choices=STAFF_WORK_STATUS_CHOICES,
-        default=StaffWorkStatusEnum.ON.value
-    )
-    
-    work_status_thu = models.IntegerField(
-        blank=False, 
-        null=False,
-        choices=STAFF_WORK_STATUS_CHOICES,
-        default=StaffWorkStatusEnum.ON.value
-    )
-
-    work_status_fri = models.IntegerField(
-        blank=False, 
-        null=False,
-        choices=STAFF_WORK_STATUS_CHOICES,
-        default=StaffWorkStatusEnum.ON.value
-    )
-
-    work_status_sat = models.IntegerField(
-        blank=False, 
-        null=False,
-        choices=STAFF_WORK_STATUS_CHOICES,
-        default=StaffWorkStatusEnum.OFF.value
-    )
-
-    work_status_sun = models.IntegerField(
-        blank=False, 
-        null=False,
-        choices=STAFF_WORK_STATUS_CHOICES,
-        default=StaffWorkStatusEnum.OFF.value
-    )
-
-    for i in range(1, WORK_SESSION_COUNT + 1):
-        locals()[f'work{i}_start_time'] = models.TimeField(
-            blank=True, null=True
-        )
-        locals()[f'work{i}_end_time'] = models.TimeField(
-            blank=True, null=True
-        )
-        locals()[f'work{i}_place'] = models.ForeignKey(
-            WorkPlaceModel,
-            on_delete=models.SET_NULL,
-            blank=True,
-            null=True,
-            related_name=f'staff_work{i}_place'
-        )
-    del i 
- 
-    lunch = models.IntegerField(
-        blank=True,
-        null=True,
-        choices=LUNCH_CHOICES,
-    )
-    
-    eat_lunch_at = models.IntegerField(
-        blank=True,
-        null=True,
-        default=1
-    )  
 
     def __str__(self):
         return self.name
@@ -206,72 +67,61 @@ class StaffModel(models.Model):
             self.order = max_order + 1 if max_order is not None else 1
         super().save(*args, **kwargs)
 
-class StaffWorkModel(models.Model):
+    class Meta:
+        ordering = ['order']
+
+class StaffRecordModel(models.Model):
     class Meta:
         unique_together = ('staff', 'work_date')
+        ordering = ['staff__order']
         
     staff = models.ForeignKey(
         StaffModel,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null = True,
-        related_name='staff'
-    )
-
-    staff_name = models.CharField(
-        max_length=20, 
-        blank=True, 
-        null=True
+        blank=True,
+        related_name='staff_record'
     )
 
     work_date = models.DateField()
 
     work_status = models.IntegerField(
-        blank=True, 
-        null=True,
-        choices=STAFF_WORK_STATUS_CHOICES,
+        choices=StaffWorkStatusEnum.choices,
+        default=StaffWorkStatusEnum.OFF
     )
-
-    for i in range(1, WORK_SESSION_COUNT + 1):
-        locals()[f'work{i}_start_time'] = models.TimeField(
-            blank=True, null=True
-        )
-        locals()[f'work{i}_end_time'] = models.TimeField(
-            blank=True, null=True
-        )
-        locals()[f'work{i}_place'] = models.ForeignKey(
-            WorkPlaceModel,
-            on_delete=models.SET_NULL,
-            blank=True,
-            null=True,
-            related_name=f'staff_w_work{i}_place'
-        )
-    del i 
-
-    lunch = models.IntegerField(
-        blank=True,
-        null=True,
-        choices=LUNCH_CHOICES, 
-    )
-
-    eat_lunch_at = models.IntegerField(
-        blank=True,
-        null=True,
-        default=1
-    )  
 
     def __str__(self):
-        return f'{self.staff_name or "Unknown"} - {self.work_date}'
+        return f'{self.staff.name if self.staff else ""} - {self.work_date}'
     
-    def save(self, *args, **kwargs):
-        if self.staff and not self.staff_name:
-            self.staff_name = self.staff.name
-        super().save(*args, **kwargs)
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['staff', 'work_date'],
+                name='unique_staff_work_date'
+            )
+        ]   
+    
+class StaffWorkStatusPatternModel(models.Model):
+    staff = models.ForeignKey(
+        StaffModel,
+        on_delete=models.CASCADE,
+    )
+        
+    weekday = models.IntegerField(
+        choices=WeekdayEnum.choices
+    )
 
-    def get_work_status_display(self):
-        return dict(STAFF_WORK_STATUS_CHOICES).get(self.work_status, "未設定")
-    
-    def get_lunch_display(self):
-        return get_lunch_display(self.lunch)
+    work_status = models.IntegerField(
+        choices=StaffWorkStatusEnum.choices,
+        default=StaffWorkStatusEnum.OFF
+    )
+
+    class Meta:
+        unique_together = ('staff', 'weekday')
+        ordering = ['weekday']
+
+    def __str__(self):
+        return f'{self.staff.name} - {self.get_weekday_display()}'
 
 class CustomerModel(models.Model):
     name = models.CharField(
@@ -286,149 +136,6 @@ class CustomerModel(models.Model):
         null=False,
     )
     
-    morning_transport_means = models.IntegerField(
-        blank=True, 
-        null=True,
-        choices=TRANSPORT_MEANS_CHOICES,
-    )
-
-    pickup_place = models.CharField(
-        max_length=20,
-        blank=True,
-        null=True,
-    )
-    pickup_staff = models.ForeignKey(
-        StaffModel,
-        on_delete=models.SET_NULL,
-        blank=True,
-        null = True,
-        related_name='pickup_staff'
-    )
-
-    pickup_time = models.TimeField(
-        blank=True,
-        null=True,
-    )
-
-    pickup_car = models.ForeignKey(
-        CompanyCarModel,
-        on_delete=models.SET_NULL,
-        blank=True,
-        null = True,
-        related_name='pickup_car'
-    )
-
-    # 帰り
-    return_transport_means = models.IntegerField(
-        blank=True, 
-        null=True,
-        choices=TRANSPORT_MEANS_CHOICES,
-    )
-
-    dropoff_place = models.CharField(
-        max_length=20,
-        blank=True,
-        null=True,
-    )
-    dropoff_staff = models.ForeignKey(
-        StaffModel,
-        on_delete=models.SET_NULL,
-        blank=True,
-        null = True,
-        related_name='dropoff_staff'
-    )
-
-    dropoff_time = models.TimeField(
-        blank=True,
-        null=True,
-    )
-
-    dropoff_car = models.ForeignKey(
-        CompanyCarModel,
-        on_delete=models.SET_NULL,
-        blank=True,
-        null = True,
-        related_name='dropoff_car'
-    )
-
-    # 勤務
-    work_status_mon = models.IntegerField(
-        blank=False, 
-        null=False,
-        choices=CUSTOMER_WORK_STATUS_CHOICES,
-        default=CustomerWorkStatusEnum.OFFICE.value
-    )
-
-    work_status_tue = models.IntegerField(
-        blank=False, 
-        null=False,
-        choices=CUSTOMER_WORK_STATUS_CHOICES,
-        default=CustomerWorkStatusEnum.OFFICE.value
-    )
-
-    work_status_wed = models.IntegerField(
-        blank=False, 
-        null=False,
-        choices=CUSTOMER_WORK_STATUS_CHOICES,
-        default=CustomerWorkStatusEnum.OFFICE.value
-    )
-
-    work_status_thu = models.IntegerField(
-        blank=False, 
-        null=False,
-        choices=CUSTOMER_WORK_STATUS_CHOICES,
-        default=CustomerWorkStatusEnum.OFFICE.value
-    )
-
-    work_status_fri = models.IntegerField(
-        blank=False, 
-        null=False,
-        choices=CUSTOMER_WORK_STATUS_CHOICES,
-        default=CustomerWorkStatusEnum.OFFICE.value
-    )
-
-    work_status_sat = models.IntegerField(
-        blank=False, 
-        null=False,
-        choices=CUSTOMER_WORK_STATUS_CHOICES,
-        default=CustomerWorkStatusEnum.OFF.value
-    )
-
-    work_status_sun = models.IntegerField(
-        blank=False, 
-        null=False,
-        choices=CUSTOMER_WORK_STATUS_CHOICES,
-        default=CustomerWorkStatusEnum.OFF.value
-    )
-
-    for i in range(1, WORK_SESSION_COUNT + 1):
-        locals()[f'work{i}_start_time'] = models.TimeField(
-            blank=True, null=True
-        )
-        locals()[f'work{i}_end_time'] = models.TimeField(
-            blank=True, null=True
-        )
-        locals()[f'work{i}_place'] = models.ForeignKey(
-            WorkPlaceModel,
-            on_delete=models.SET_NULL,
-            blank=True,
-            null=True,
-            related_name=f'customer_work{i}_place'
-        )
-    del i 
-
-    lunch = models.IntegerField(
-        blank=True,
-        null=True,
-        choices=LUNCH_CHOICES, 
-    )
-    
-    eat_lunch_at = models.IntegerField(
-        blank=True,
-        null=True,
-        default=1
-    )  
-
     def __str__(self):
         return self.name
     
@@ -438,166 +145,234 @@ class CustomerModel(models.Model):
             self.order = max_order + 1 if max_order is not None else 1
         super().save(*args, **kwargs)
 
-class CustomerWorkModel(models.Model):
     class Meta:
-        unique_together = ('customer', 'work_date')
+        ordering = ['order']
+
+class CustomerRecordModel(models.Model):
         
     customer = models.ForeignKey(
         CustomerModel,
         on_delete=models.SET_NULL,
         null = True,
         blank=True,
-    )
-
-    customer_name = models.CharField(
-        max_length=20, 
-        blank=True, 
-        null=True
+        related_name='customer_record'
     )
 
     work_date = models.DateField()
 
     work_status = models.IntegerField(
-        blank=False, 
-        null=True,
-        choices=CUSTOMER_WORK_STATUS_CHOICES,
-    )   
-
-    current_status = models.IntegerField(
-        blank=False,
-        null=False,
-        default=CurrentStatusEnum.BEFORE_WORK.value
+        choices=CustomerWorkStatusEnum.choices,
+        default=CustomerWorkStatusEnum.OFF
     )
 
-    morning_transport_means = models.IntegerField(
-        blank=True, 
-        null=True,
-        choices=TRANSPORT_MEANS_CHOICES,
-    )
-
-    pickup_place = models.CharField(
-        max_length=20,
-        blank=True,
-        null=True,
-    )
-    pickup_staff = models.ForeignKey(
-        StaffModel,
-        on_delete=models.SET_NULL,
-        blank=True,
-        null = True,
-        related_name='work_pickup_staff'
-    )
-
-    pickup_time = models.TimeField(
-        blank=True,
-        null=True,
-    )
-
-    pickup_car = models.ForeignKey(
-        CompanyCarModel,
-        on_delete=models.SET_NULL,
-        blank=True,
-        null = True,
-        related_name='work_pickup_car'
-    )
-
-    # 帰り
-    return_transport_means = models.IntegerField(
-        blank=True, 
-        null=True,
-        choices=TRANSPORT_MEANS_CHOICES,
-    )
-
-    dropoff_place = models.CharField(
-        max_length=20,
-        blank=True,
-        null=True,
-    )
-    
-    dropoff_staff = models.ForeignKey(
-        StaffModel,
-        on_delete=models.SET_NULL,
-        blank=True,
-        null = True,
-        related_name='work_dropoff_staff'
-    )
-
-    dropoff_time = models.TimeField(
-        blank=True,
-        null=True,
-    )
-
-    dropoff_car = models.ForeignKey(
-        CompanyCarModel,
-        on_delete=models.SET_NULL,
-        blank=True,
-        null = True,
-        related_name='work_dropoff_car'
-    )
-
-    for i in range(1, WORK_SESSION_COUNT + 1):
-        locals()[f'work{i}_start_time'] = models.TimeField(
-            blank=True, null=True
-        )
-        locals()[f'work{i}_end_time'] = models.TimeField(
-            blank=True, null=True
-        )
-        locals()[f'work{i}_place'] = models.ForeignKey(
-            WorkPlaceModel,
-            on_delete=models.SET_NULL,
-            blank=True,
-            null=True,
-            related_name=f'customer_w_work{i}_place'
-        )
-    del i 
-    
-    lunch = models.IntegerField(
-        blank=True,
-        null=True,
-        choices=LUNCH_CHOICES, 
-    )
-
-    eat_lunch_at = models.IntegerField(
-        blank=True,
-        null=True,
-        default=1
-    )  
+    # current_status = models.IntegerField(
+    #     choices=CurrentStatusEnum.choices,
+    #     default=CurrentStatusEnum.BEFORE
+    # )
 
     def __str__(self):
-        return f'{self.customer_name or "Unknown"} - {self.work_date}'
+        return f'{self.customer} - {self.work_date}'
     
-    def save(self, *args, **kwargs):
-        if self.customer and not self.customer_name:
-            self.customer_name = self.customer.name
-        super().save(*args, **kwargs)
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['customer', 'work_date'],
+                name='unique_customer_work_date'
+            )
+        ]
 
-    def get_work_status_display(self):
-        return dict(CUSTOMER_WORK_STATUS_CHOICES).get(self.work_status, '未設定')
-    
-    def get_current_status_display(self):
-        if self.current_status == CurrentStatusEnum.BEFORE_WORK.value:
-            return "出勤前"
-        elif self.current_status == CurrentStatusEnum.AFTER_WORK.value:
-            return "退勤済"     
-        else:
-            field_name = f"work{self.current_status}_place"
-            return getattr(self, field_name, "")
-    
-    def get_morning_transport_display(self):
-        return dict(TRANSPORT_MEANS_CHOICES).get(self.morning_transport_means, "")
+class CustomerWorkStatusPatternModel(models.Model):
+    customer = models.ForeignKey(
+        CustomerModel,
+        on_delete=models.CASCADE,
+    )
+        
+    weekday = models.IntegerField(
+        choices=WeekdayEnum.choices
+    )
 
-    def get_return_transport_display(self):
-        return dict(TRANSPORT_MEANS_CHOICES).get(self.return_transport_means, "")
+    work_status = models.IntegerField(
+        choices=CustomerWorkStatusEnum.choices,
+        default=CustomerWorkStatusEnum.OFF
+    )
+
+    class Meta:
+        unique_together = ('customer', 'weekday')
+        ordering = ['weekday']
+
+    def __str__(self):
+        return f'{self.customer.name} - {self.get_weekday_display()}'
     
-    def get_lunch_display(self):
-        return get_lunch_display(self.lunch)
+class BaseTransport(models.Model):
+    customer = models.ForeignKey(
+        CustomerModel,
+        on_delete=models.CASCADE,
+    )
+
+    transport_type = models.IntegerField(
+        choices=TransportTypeEnum.choices
+    )
+
+    transport_means = models.IntegerField(
+        choices=TransportMeansEnum.choices,
+        blank=True,
+        null=True,
+    )
+
+    place = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+    )
+
+    staff = models.ForeignKey(
+        StaffModel,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+    )
+
+    time = models.TimeField(
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        abstract = True
+
+class TransportPatternModel(BaseTransport):
+
+    weekday = models.IntegerField(
+        choices=WeekdayEnum.choices
+    )
+
+    class Meta:
+        unique_together = ('customer', 'weekday', 'transport_type')
+        ordering = ['weekday']
+
+    def __str__(self):
+        return f'{self.customer} {self.get_weekday_display()} {self.transport_type}'
+
+class TransportRecordModel(BaseTransport):
+    record = models.ForeignKey(
+        'CustomerRecordModel',
+        on_delete=models.CASCADE,
+        related_name='record_transport'
+    )
+
+    class Meta:
+        unique_together = ('record', 'transport_type')
+
+    def __str__(self):
+        return f'{self.work} - {self.get_transport_type_display()}'
+
+class BaseSession(models.Model):
+    session_no = models.PositiveSmallIntegerField(null=False,default=1)
+    place = models.ForeignKey(
+        'PlaceModel',
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True
+    )
+    start_time = models.TimeField(blank=True, null=True)
+    end_time = models.TimeField(blank=True, null=True)
+
+    class Meta:
+        abstract = True  # DB テーブルは作らない
+
+class StaffSessionPatternModel(BaseSession):
+
+    staff = models.ForeignKey(
+        'StaffModel',
+        on_delete=models.CASCADE,
+        related_name='staff_session_pattern'
+    )    
+
+    weekday = models.IntegerField(
+        choices=WeekdayEnum.choices
+    )
+
+    class Meta:
+        unique_together = (
+            'staff',    
+            'weekday',
+            'session_no',
+        )
+
+    def __str__(self):
+        return f'{self.staff} - {self.get_weekday_display()} - 勤務{self.session_no}'
+    
+class CustomerSessionPatternModel(BaseSession):
+
+    customer = models.ForeignKey(
+        'CustomerModel',
+        on_delete=models.CASCADE,
+        related_name='customer_session_pattern'
+    )    
+
+    weekday = models.IntegerField(
+        choices=WeekdayEnum.choices
+    )
+
+    class Meta:
+        unique_together = (
+            'customer',    
+            'weekday',
+            'session_no',
+        )
+
+    def __str__(self):
+        return f'{self.customer} - {self.get_weekday_display()} - 勤務{self.session_no}'
+
+class StaffSessionRecordModel(BaseSession):
+
+    record = models.ForeignKey(
+        StaffRecordModel,
+        on_delete=models.CASCADE,
+        related_name='staff_session_record'
+    )
+
+    class Meta:
+        unique_together = ('record', 'session_no')
+        ordering = ['session_no']
+
+    def __str__(self):
+        return f'{self.record} - 勤務{self.session_no}'
+    
+class CustomerSessionRecordModel(BaseSession):
+
+    record = models.ForeignKey(
+        CustomerRecordModel,
+        on_delete=models.CASCADE,
+        related_name='customer_session_record'
+    )
+
+    class Meta:
+        unique_together = ('record', 'session_no')
+        ordering = ['session_no']
+
+    def __str__(self):
+        return f'{self.record} - 勤務{self.session_no}'
+
+class PlaceModel(models.Model):
+    name = models.CharField(
+        max_length=20, 
+        blank=True,
+        null=True,
+     )
+    
+    order = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        ordering = ['order'] 
+
+    def __str__(self):
+        return self.name 
     
 class PlaceRemarksModel(models.Model):
-    class Meta:
-        unique_together = ('place', 'work_date')
-        
+
     place = models.ForeignKey(
-        WorkPlaceModel,
+        PlaceModel,
         on_delete=models.SET_NULL,
         null = True,
         blank=True,
@@ -612,9 +387,12 @@ class PlaceRemarksModel(models.Model):
         default=""
     )
 
+    class Meta:
+        unique_together = ('place', 'work_date')
+
     def __str__(self):
         return f'{self.place} - {self.work_date}'
-
+    
 class LogModel(models.Model):
     dateTime = models.DateTimeField(auto_now_add=True)
 
@@ -632,5 +410,6 @@ class LogModel(models.Model):
 
     def __str__(self):
         return f'{self.dateTime} - {self.user.username} - {self.text}'
+
 
 

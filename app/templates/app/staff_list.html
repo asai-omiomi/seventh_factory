@@ -1,0 +1,11 @@
+<!-- staff_list.html -->
+
+{% extends 'app/template_base.html' %}
+
+{% block title %}スタッフ情報{% endblock %}
+
+{% block contents %}
+
+{% include 'app/partials/member_list.html' with title='スタッフ情報' form_action_name='staff_list_dispatch' members=staffs %}
+
+{% endblock %}

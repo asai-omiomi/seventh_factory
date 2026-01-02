@@ -1,0 +1,41 @@
+<!-- app/partials/member_list.html -->
+
+<div class="wrapper">
+    <h1>{{ title }}</h1>
+
+    <form action="{% url form_action_name %}" method="post">
+        {% csrf_token %}
+        <button class="btn-sm mt-3 mb-3" type="submit" name="create" value="0">新規登録</button>
+
+        <div class="row">
+            <div class="col-lg-7">
+                <table class="table table-bordered align-middle">
+                    <thead class="table-header table-success">
+                        <tr>
+                            <th>並び替え</th>
+                            <th>名前</th>
+                            <th>設定</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for member in members %}
+                        <tr>
+                            <td class="width-content-fit">
+                                <button class="btn-sm" type="submit" name="up" value="{{ member.pk }}">↑</button>
+                                <button class="btn-sm" type="submit" name="down" value="{{ member.pk }}">↓</button>
+                            </td>
+
+                            <td>{{ member.name }}</td>
+
+                            <td class="width-content-fit">
+                                <button class="btn-sm" type="submit" name="edit" value="{{ member.pk }}">編集</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </form>
+</div>

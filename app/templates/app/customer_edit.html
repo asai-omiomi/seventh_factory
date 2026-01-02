@@ -1,0 +1,10 @@
+<!-- customer_edit.html -->
+{% extends 'app/template_base.html' %}
+
+{% block title %}利用者情報設定{% endblock %}
+
+{% block contents %}
+
+{% include 'app/partials/member_edit.html' with title='利用者情報設定' form_action=form_action member_form=customer_form day_patterns=day_patterns transport=True %}
+
+{% endblock %}

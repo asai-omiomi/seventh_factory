@@ -1,0 +1,10 @@
+<!-- staff_edit.html -->
+{% extends 'app/template_base.html' %}
+
+{% block title %}スタッフ情報設定{% endblock %}
+
+{% block contents %}
+
+{% include 'app/partials/member_edit.html' with title='スタッフ情報設定' form_action=form_action member_form=staff_form day_patterns=day_patterns transport=False %}
+
+{% endblock %}

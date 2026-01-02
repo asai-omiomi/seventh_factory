@@ -1,14 +1,16 @@
 from django.shortcuts import render, redirect,get_object_or_404
 from django.views.generic.base import TemplateView
-from .forms import StaffForm, StaffWorkForm, CustomerForm, CustomerWorkForm, CalendarForm, OutputForm,PlaceRemarksForm
-from .models import CustomerModel,CustomerWorkModel,StaffModel,StaffWorkModel, WorkPlaceModel,TransportMeansEnum,LunchEnum, StaffWorkStatusEnum, CustomerWorkStatusEnum, WORK_SESSION_COUNT, CurrentStatusEnum,PlaceRemarksModel
+from .models import CustomerModel,CustomerRecordModel,StaffModel,CustomerWorkStatusPatternModel,StaffRecordModel, StaffSessionRecordModel,StaffWorkStatusPatternModel,CustomerSessionRecordModel,CustomerSessionPatternModel,TransportPatternModel,StaffSessionPatternModel,TransportRecordModel,WeekdayEnum, PlaceModel,TransportMeansEnum,TransportTypeEnum,StaffWorkStatusEnum, CustomerWorkStatusEnum,  WORK_SESSION_COUNT, PlaceRemarksModel
+from .forms import CustomerWorkStatusPatternForm,PlaceRemarksForm,StaffForm,StaffRecordForm,CustomerForm,CustomerWorkStatusPatternForm,CustomerSessionPatternForm,CustomerSessionRecordForm,StaffSessionRecordForm,TransportPatternForm,TransportRecordForm,StaffSessionPatternForm,CustomerRecordForm,StaffWorkStatusPatternForm,CalendarForm,OutputForm
 from datetime import datetime
-from django.contrib.auth.decorators import login_required
 from dateutil.relativedelta import relativedelta
 from django.http import HttpResponse
+from django.urls import reverse
 import csv
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
+from django.db import transaction
+from collections import defaultdict
 
 class IndexView(TemplateView):
     template_name = 'app/index.html'
@@ -19,1029 +21,1376 @@ def info_today(request):
     return redirect('info', work_date)
 
 def info(request, work_date):
+    # =========================
+    # POST：勤務状態の更新
+    # =========================
+    # if request.method == "POST" and "update_current_status" in request.POST:
+    #     customer_id = request.POST.get("update_current_status")
+    #     work_date = request.POST.get("work_date")
+    #     new_status = request.POST.get("current_status")
 
+    #     customer_record = get_object_or_404(
+    #         CustomerRecordModel,
+    #         customer__pk=customer_id,
+    #         work_date=work_date
+    #     )
+
+    #     customer_record.current_status = int(new_status)
+    #     customer_record.save()
+
+    # =========================
+    # GET：通常の表示
+    # =========================
     calendar_form = CalendarForm(initial_date=work_date)
 
-    staff_work_exists = StaffWorkModel.objects.filter(work_date=work_date).exists()
-    customer_work_exists = CustomerWorkModel.objects.filter(work_date=work_date).exists()
+    info = _build_info(work_date)
 
-    if not staff_work_exists and not customer_work_exists:
-        # 両方のデータが存在しない場合の処理
-        return render(request, 'app/info_no_data.html', {
-            'work_date': work_date,
-            'calendar_form':calendar_form,
-            })
-
-    lunch_info = create_info_by_lunch(work_date)
-
-    info_by_place = create_info_by_place(work_date)
-
-    info_by_staff = create_info_by_staff(work_date)
-
-    info_by_customer = create_info_by_customer(work_date)
+    transport_table_rows = _build_transport_table_rows(work_date)
 
     return render(request,'app/info.html',{
         'work_date':work_date,
         'calendar_form':calendar_form,
-        'lunch_info':lunch_info,
-        'info_by_place': info_by_place,
-        'info_by_staff':info_by_staff,
-        'info_by_customer':info_by_customer,
+        'info': info,
+        'transport_table_rows': transport_table_rows,
+        # 'current_status_choices': CurrentStatusEnum.choices, 
         })
 
-def create_info_by_lunch(work_date):
-    work_places = WorkPlaceModel.objects.all()
+def _build_info(work_date):
 
-    total_lunch_count_staff = 0
-    total_lunch_count_customer = 0
+    staff_records = StaffRecordModel.objects.filter(work_date=work_date).order_by('staff__order')
 
-    lunch_by_area = {}
-    
-    staff_works = StaffWorkModel.objects.filter(work_date=work_date).order_by('staff__order')
-    customer_works = CustomerWorkModel.objects.filter(work_date=work_date).order_by('customer__order')
+    customer_records = CustomerRecordModel.objects.filter(work_date=work_date).order_by('customer__order')
 
-    for work_place in work_places:
+    if not staff_records and not customer_records:
+        return []
 
-        lunch_count_staff = sum(
-        1 for staff_work in staff_works
-        for i in range(1, WORK_SESSION_COUNT + 1)
-        if getattr(staff_work, f'work{i}_place') == work_place and staff_work.lunch == LunchEnum.ORDERED_LUNCH_BOX.value and staff_work.eat_lunch_at == i
-        )
+    info = []
 
-        lunch_count_customer = sum(
-            1 for customer_work in customer_works
-            for i in range(1, WORK_SESSION_COUNT + 1)
-            if getattr(customer_work, f'work{i}_place') == work_place and customer_work.lunch == LunchEnum.ORDERED_LUNCH_BOX.value and customer_work.eat_lunch_at == i
-        )
+    # 勤務地別を追加
+    _append_place_info(staff_records, customer_records, work_date, info)
+    # 在宅を追加
+    _append_home_info(customer_records, info)
+    # 休みを追加
+    _append_off_info(staff_records, customer_records, info)
 
-        total_lunch_count_staff += lunch_count_staff
-        total_lunch_count_customer += lunch_count_customer
+    return info
 
-        area = work_place.area
-        if area not in lunch_by_area:
-            lunch_by_area[area] = {
-                'count': 0,
-                'name': [],
-            }
+def _append_place_info(staff_records, customer_records, work_date, info):
+    places = PlaceModel.objects.all()
 
-        lunch_by_area[area]['count'] += lunch_count_staff + lunch_count_customer
-        
-        # スタッフの名前を追加
-        lunch_by_area[area]['name'].extend(
-            staff_work.staff_name for staff_work in staff_works
-            for i in range(1, WORK_SESSION_COUNT + 1)
-            if staff_work.eat_lunch_at == i and getattr(staff_work, f'work{i}_place') == work_place and staff_work.lunch == LunchEnum.ORDERED_LUNCH_BOX.value
-        )
+    for place in places:
+        staff_list = _bulid_staff_list(staff_records, place)    
+        customer_list = _build_customer_list(customer_records, place)  
+        staff_customer_list = _build_staff_customer_list(staff_list, customer_list)
+        remarks = _build_remarks(place, work_date)
 
-    for work_place in work_places:
-        # 利用者の名前を追加(スタッフのあとに利用者を追加)
-        area = work_place.area
-        lunch_by_area[area]['name'].extend(
-            customer_work.customer_name for customer_work in customer_works
-            for i in range(1, WORK_SESSION_COUNT + 1)
-            if customer_work.eat_lunch_at == i and getattr(customer_work, f'work{i}_place') == work_place and customer_work.lunch == LunchEnum.ORDERED_LUNCH_BOX.value
-        )   
-
-    lunch_info = {
-        'total_count': total_lunch_count_staff + total_lunch_count_customer,
-        'staff_count': total_lunch_count_staff,
-        'customer_count': total_lunch_count_customer,
-        'by_area': lunch_by_area,
-    } 
-
-    return lunch_info
-
-def create_info_by_place(work_date):
-
-    staff_works = StaffWorkModel.objects.filter(work_date=work_date).order_by('staff__order')
-    customer_works = CustomerWorkModel.objects.filter(work_date=work_date).order_by('customer__order')
-
-    work_places = WorkPlaceModel.objects.all()
-
-    info_by_place = []
-
-    for work_place in work_places:
-        staff_list = [
-            {
-                'name':staff_work.staff_name,
-                'time':(
-                    f"{getattr(staff_work, f'work{i}_start_time').strftime('%H:%M')}～{getattr(staff_work, f'work{i}_end_time').strftime('%H:%M')}"
-                    if getattr(staff_work, f'work{i}_start_time') and getattr(staff_work, f'work{i}_end_time')
-                    else ""
-                ),          
-                'eats_lunch_here': (
-                    "注文" if staff_work.lunch == LunchEnum.ORDERED_LUNCH_BOX.value else
-                    "持参" if staff_work.lunch == LunchEnum.BYO_LUNCH_BOX.value else
-                    ""
-                ) if staff_work.eat_lunch_at == i else ""
-            }
-            for staff_work in staff_works
-            for i in range(1, WORK_SESSION_COUNT + 1)
-            if getattr(staff_work, f'work{i}_place') == work_place
-        ]
-
-        customer_list = [
-            {
-                'name':customer_work.customer_name,
-                'time':(
-                    f"{getattr(customer_work, f'work{i}_start_time').strftime('%H:%M')}～{getattr(customer_work, f'work{i}_end_time').strftime('%H:%M')}"
-                    if getattr(customer_work, f'work{i}_start_time') and getattr(customer_work, f'work{i}_end_time')
-                    else ""
-                ),          
-                'eats_lunch_here': (
-                    "注文" if customer_work.lunch == LunchEnum.ORDERED_LUNCH_BOX.value else
-                    "持参" if customer_work.lunch == LunchEnum.BYO_LUNCH_BOX.value else
-                    ""
-                ) if customer_work.eat_lunch_at == i else ""
-            }
-            for customer_work in customer_works
-            for i in range(1, WORK_SESSION_COUNT + 1)
-            if getattr(customer_work, f'work{i}_place') == work_place
-        ]
-
-        staff_customer_list = []
-        max_length = max(len(staff_list), len(customer_list))
-
-        for i in range(max_length):
-            staff = staff_list[i] if i < len(staff_list) else None
-            customer = customer_list[i] if i < len(customer_list) else None
-            staff_customer_list.append((staff, customer))
-
-        remarks = PlaceRemarksModel.objects.filter(place = work_place, work_date=work_date).first()
-
-        if not remarks:
-            remarks = PlaceRemarksModel(place = work_place, work_date=work_date)
-            remarks.remarks="　"
-
-        if not remarks.remarks:
-            remarks.remarks="　"
-
-        info_by_place.append({
-            'work_place': work_place,
+        info.append({
+            'place_id': place.id,
+            'place_name': place.name,
+            'color': "table-secondary",
             'staff_cusotmer_list': staff_customer_list,
-            'remarks': remarks.remarks,
-        })
+            'remarks': remarks,
+        })  
 
-    return info_by_place
+def _append_home_info(customer_records, info):
 
-def create_info_by_staff(work_date):
-
-    staffs = StaffModel.objects.all().order_by('order')
-    customer_works = CustomerWorkModel.objects.filter(work_date=work_date).order_by('customer__order')
+    customer_list = _build_customer_list(customer_records, None, CustomerWorkStatusEnum.HOME)
+    staff_cusotmer_list = _build_staff_customer_list(None, customer_list)
     
-    info_by_staff = []
+    info.append({
+        'place_id': -1,
+        'place_name': "在宅",
+        'color': "table-success",
+        'staff_cusotmer_list': staff_cusotmer_list,
+        'remarks': "",
+    })     
 
-    for staff in staffs:
-        staff_work = StaffWorkModel.objects.filter(staff_id=staff.pk, work_date=work_date).first()
-            
-        if not staff_work:
-            staff_work = StaffWorkModel(staff=staff, work_date=work_date)
-            staff_work.staff_name = staff.name
+def _append_off_info(staff_works, customer_records, info):
 
-        places_and_times = []
-        pickup_list = []
-        dropoff_list = []
-        lunch = ""
+    staff_list = _bulid_staff_list(staff_works, None, StaffWorkStatusEnum.OFF) # 有休も
+    customer_list = _build_customer_list(customer_records, None, CustomerWorkStatusEnum.OFF)
+    staff_cusotmer_list = _build_staff_customer_list(staff_list, customer_list)
 
-        if staff_work.work_status == StaffWorkStatusEnum.ON.value:
+    info.append({
+        'place_id': -1,
+        'place_name': "休み",
+        'color': "table-danger",
+        'staff_cusotmer_list': staff_cusotmer_list,
+        'remarks': "",
+    })  
 
-            # 勤務地&勤務時間のリスト
-            for i in range(1,5):
-                place = getattr(staff_work, f'work{i}_place', None)
-                start_time = getattr(staff_work, f'work{i}_start_time', None)
-                end_time = getattr(staff_work, f'work{i}_end_time', None)
-                if place:
-                    time = f"{start_time.strftime('%H:%M')}～{end_time.strftime('%H:%M')}" if start_time and end_time else ""
-                    places_and_times.append({
-                        'place': place.name,
-                        'time': time
-                    })
+# def _status_btn_class(status):
+#     return {
+#         CurrentStatusEnum.BEFORE:   "btn-outline-primary",
+#         CurrentStatusEnum.WORKING:  "btn-primary",
+#         CurrentStatusEnum.FINISHED: "btn-secondary",
+#         CurrentStatusEnum.HOME:     "btn-success",
+#         CurrentStatusEnum.ABSENT:   "btn-danger",
+#     }.get(status, "btn-outline-secondary")
 
-            # 朝の送迎リスト
-            pickup_customers = [customer_work for customer_work in customer_works if customer_work.pickup_staff == staff_work.staff]
-            
-            for customer in pickup_customers:
-                place_info = f"{customer.pickup_place}" if customer.pickup_place else ""
-                time_info = f"{customer.pickup_time.strftime('%H:%M')}" if customer.pickup_time else ""
-                car_info = f"{customer.pickup_car}" if customer.pickup_car else ""
+def _build_member_list(
+    records,
+    place,
+    work_status,
+    get_member,              # rcd → customer / staff
+    session_model,           
+    extra_lines_builder=None # 追加表示（送迎など）
+):
+    if not place:
+        return [
+            {
+                'id': member.id,
+                'name': member.name,
+                'display': member.name,
+            }
+            for rcd in records
+            if (member := get_member(rcd)) and rcd.work_status == work_status
+        ]
 
-                pickup_list.append({
-                    'name':customer.customer.name,
-                    'place': place_info,
-                    'time': time_info,
-                    'car': car_info,
-                })
-                        
-            # 帰りの送迎リスト
-            dropoff_customers = [customer_work for customer_work in customer_works if customer_work.dropoff_staff == staff_work.staff]
-            
-            for customer in dropoff_customers:
-                place_info = f"{customer.dropoff_place}" if customer.dropoff_place else ""
-                time_info = f"{customer.dropoff_time.strftime('%H:%M')}" if customer.dropoff_time else ""
-                car_info = f"{customer.dropoff_car}" if customer.dropoff_car else ""
+    result = []
 
-                dropoff_list.append({
-                    'name':customer.customer.name,
-                    'place': place_info,
-                    'time': time_info,
-                    'car': car_info,
-                })
+    for rcd in records:
+        member = get_member(rcd)
+        if not member:
+            continue
 
-            lunch = staff_work.get_lunch_display()
-        
-        info_by_staff.append({
-            'id':staff_work.staff.pk,
-            'name':staff_work.staff_name,
-            'status':staff_work.get_work_status_display(),
-            'places_and_times':places_and_times,
-            'pickup_list':pickup_list,
-            'dropoff_list':dropoff_list,
-            'lunch':lunch,
+        # 勤務セッション（place に一致するもの）
+        sessions = session_model.objects.filter(
+            record=rcd,
+            place=place,
+        )
+
+        if not sessions.exists():
+            continue
+
+        lines = [member.name]
+
+        # 勤務時間
+        for s in sessions.order_by('session_no'):
+            if s.start_time and s.end_time:
+                lines.append(
+                    f"{s.start_time.strftime('%H:%M')}～{s.end_time.strftime('%H:%M')}"
+                )
+
+        # 追加情報（送迎など）
+        if extra_lines_builder:
+            lines.extend(extra_lines_builder(rcd))
+
+        result.append({
+            'id': member.id,
+            'name': member.name,
+            'display': "\n".join(lines),
         })
-            
-    return info_by_staff
 
-def create_info_by_customer(work_date):
+    return result
 
-    customers = CustomerModel.objects.all().order_by('order')
+def _build_customer_extra_lines(rcd):
+    lines = []
 
-    info_by_customer = []
+    for label, t_type in (
+        ("朝", TransportTypeEnum.MORNING),
+        ("帰り", TransportTypeEnum.RETURN),
+    ):
+        transport = TransportRecordModel.objects.filter(
+            record=rcd,
+            transport_type=t_type
+        ).first()
 
-    for customer in customers:
-        customer_work = CustomerWorkModel.objects.filter(customer=customer,work_date=work_date).first()
+        if not transport:
+            continue
 
-        if not customer_work:
-            customer_work = CustomerWorkModel(customer=customer, work_date=work_date)
-            customer_work.customer_name=customer.name
+        text = f"[{label}] {transport.get_transport_means_display() or ''}"
 
-        places_and_times = []
-        morning_transport = ""
-        return_transport = ""
-        current_status = ""
-        lunch = ""
+        if transport.transport_means == TransportMeansEnum.TRANSFER:
+            if transport.staff:
+                text += f" {transport.staff}"
+            if transport.place:
+                text += f" {transport.place}"
+            if transport.time:
+                text += f" {transport.time.strftime('%H:%M')}"
 
-        if customer_work.work_status == CustomerWorkStatusEnum.OFFICE.value:
+        lines.append(text)
 
-            current_status = customer_work.get_current_status_display()
+    return lines
 
-            for i in range(1,WORK_SESSION_COUNT+1):
-                place = getattr(customer_work, f'work{i}_place', None)
-                start_time = getattr(customer_work, f'work{i}_start_time', None)
-                end_time = getattr(customer_work, f'work{i}_end_time', None)
+def _bulid_staff_list(staff_records, place, work_status=None):
+    return _build_member_list(
+        records=staff_records,
+        place=place,
+        work_status=work_status,
+        get_member=lambda rcd: rcd.staff,
+        session_model=StaffSessionRecordModel,
+    ) 
 
-                if place:
-                    time = f"{start_time.strftime('%H:%M')}～{end_time.strftime('%H:%M')}" if start_time and end_time else ""
-                    places_and_times.append({
-                        'place': place.name,
-                        'time': time
-                    })
+def _build_customer_list(customer_records, place, work_status=None):
+    return _build_member_list(
+        records=customer_records,
+        place=place,
+        work_status=work_status,
+        get_member=lambda rcd: rcd.customer,
+        session_model=CustomerSessionRecordModel,
+        extra_lines_builder=_build_customer_extra_lines,
+    )
+    
+def _build_remarks(place=None, work_date=None):
+    if place:
+        qs = PlaceRemarksModel.objects.filter(place=place, work_date=work_date)
+        if qs.exists():
+            prmks = qs[0]  # querysetの先頭を取得
+            return prmks.remarks or "　"
+        else:
+            return "　"
+    else:
+        return ""
 
-            morning_transport = customer_work.get_morning_transport_display()
-            if customer_work.morning_transport_means == TransportMeansEnum.TRANSFER.value:
-                
-                if customer_work.pickup_staff:
-                    morning_transport +=f"\n{customer_work.pickup_staff}"
 
-                if customer_work.pickup_place:
-                    morning_transport +=f"\n{customer_work.pickup_place}"
+def _build_staff_customer_list(staff_list, customer_list):
+    
+    # None の場合は空リストに置き換える
+    staff_list = staff_list or []
+    customer_list = customer_list or []
 
-                if customer_work.pickup_car:
-                    morning_transport +=f"\n{customer_work.pickup_car}"
+    staff_customer_list = []
+    max_length = max(len(staff_list), len(customer_list))
 
-                if customer_work.pickup_time:
-                    morning_transport +=f"\n{customer_work.pickup_time.strftime('%H:%M')}"
+    for i in range(max_length):
+        staff = staff_list[i] if i < len(staff_list) else None
+        customer = customer_list[i] if i < len(customer_list) else None
+        staff_customer_list.append((staff, customer))
 
-            return_transport = customer_work.get_return_transport_display()
-            if customer_work.return_transport_means == TransportMeansEnum.TRANSFER.value:
-                
-                if customer_work.dropoff_staff:
-                    return_transport +=f"\n{customer_work.dropoff_staff}"
+    return staff_customer_list
 
-                if customer_work.dropoff_place:
-                    return_transport +=f"\n{customer_work.dropoff_place}"
+def _build_transport_table_rows(work_date):
+    transports = (
+        TransportRecordModel.objects
+        .filter(record__work_date=work_date, transport_means=TransportMeansEnum.TRANSFER)
+        .select_related('staff', 'customer')
+        .order_by('staff__order', 'customer__order')
+    )
 
-                if customer_work.dropoff_car:
-                    return_transport +=f"\n{customer_work.dropoff_car}"
+    rows = {}
 
-                if customer_work.dropoff_time:
-                    return_transport +=f"\n{customer_work.dropoff_time.strftime('%H:%M')}"
-                
+    for t in transports:
+        staff_id = t.staff_id
 
-            lunch = customer_work.get_lunch_display()
+        if staff_id not in rows:
+            rows[staff_id] = {
+                'staff': t.staff,
+                'morning_list': [],
+                'return_list': [],
+            }
 
-        info_by_customer.append({
-            'id':customer_work.customer.pk,
-            'name':customer_work.customer_name,
-            'status':customer_work.get_work_status_display(),
-            'current_status':current_status,
-            'places_and_times':places_and_times,
-            'morning_transport':morning_transport,
-            'return_transport':return_transport,
-            'lunch':lunch
-        })
-    return info_by_customer
+        text = _format_transport(t)
+
+        if t.transport_type == TransportTypeEnum.MORNING:
+            rows[staff_id]['morning_list'].append(text)
+
+        elif t.transport_type == TransportTypeEnum.RETURN:
+            rows[staff_id]['return_list'].append(text)
+
+    # 表示用文字列に変換
+    for row in rows.values():
+        row['morning_text'] = '<br>'.join(row['morning_list']) or 'ー'
+        row['return_text'] = '<br>'.join(row['return_list']) or 'ー'
+
+    return rows.values()
+
+def _format_transport(t):
+    parts = [
+        t.customer.name,
+        t.time.strftime('%H:%M') if t.time else '',
+        t.place or '',
+    ]
+    return ' '.join(p for p in parts if p)
 
 def info_dispatch(request, work_date):
     assert request.method == 'POST'
     change_date = request.POST.get('change_date')
-    create_data = request.POST.get('create_data')
+    create_records = request.POST.get('create_records')
     edit_place_remarks = request.POST.get('edit_place_remarks')
-    prev_status = request.POST.get('prev_status')
-    next_status = request.POST.get('next_status')
-    edit_customer = request.POST.get('edit_customer')
-    edit_staff = request.POST.get('edit_staff')
+    customer_record_edit = request.POST.get('customer_record_edit')
+    staff_record_edit = request.POST.get('staff_record_edit')
    
     if change_date:
         work_date = request.POST.get('date')
         return redirect('info', work_date)
-    elif create_data:
+    elif create_records:
         work_date = request.POST.get('date')
-        create_work_data(work_date)
+        _create_records(work_date)
         return redirect('info', work_date)
     elif edit_place_remarks:
         place_id = edit_place_remarks
         return redirect('place_remarks', place_id, work_date)
-    elif prev_status:
-        customer_id = prev_status
-        to_prev_status(customer_id, work_date)
-        return redirect('info', work_date)
-    elif next_status:
-        customer_id = next_status
-        to_next_status(customer_id, work_date)
-        return redirect('info', work_date)  
-    elif edit_customer:
-        customer_id = edit_customer
-        return redirect('customer_date_work', 
-        customer_id=customer_id, work_date=work_date)    
-    elif edit_staff:
-        staff_id = edit_staff
-        return redirect('staff_date_work', 
-        staff_id=staff_id, work_date=work_date)   
+    elif customer_record_edit:
+        customer_id = customer_record_edit
+        return redirect('customer_record_edit', 
+            customer_id=customer_id, work_date=work_date)    
+    elif staff_record_edit:
+        staff_id = staff_record_edit
+        return redirect('staff_record_edit', 
+            staff_id=staff_id, work_date=work_date)   
     
     return redirect('info', work_date)     
 
-def to_prev_status(customer_id, work_date):
-    customer_work = CustomerWorkModel.objects.filter(customer__pk=customer_id, work_date=work_date).first()
+def _create_records(work_date):
 
-    if customer_work.current_status == CurrentStatusEnum.BEFORE_WORK.value:
-        print("エラー:出勤前の状態で「前へ」ボタンが押されました")
-        return
-    if customer_work.current_status == CurrentStatusEnum.AFTER_WORK.value:
-
-        for i in range(WORK_SESSION_COUNT,0,-1):
-            place = getattr(customer_work, f'work{i}_place')
-            if place:
-                customer_work.current_status = i
-                break
-    else:
-        customer_work.current_status -= 1
-
-    customer_work.save()
-
-def to_next_status(customer_id, work_date):
-    customer_work = CustomerWorkModel.objects.filter(customer__pk=customer_id, work_date=work_date).first()
-
-    if customer_work.current_status == CurrentStatusEnum.AFTER_WORK.value:
-        print("エラー:退勤済みの状態で「次へ」ボタンが押されました")
-        return
-    if customer_work.current_status == WORK_SESSION_COUNT:
-        customer_work.current_status = -1
-    else:
-        field_name = f"work{customer_work.current_status+1}_place"
-        next_place = getattr(customer_work, field_name)
-        if next_place:
-            customer_work.current_status += 1
-        else:
-            customer_work.current_status = CurrentStatusEnum.AFTER_WORK.value
-
-    customer_work.save()
-
-def config_work(request, work_date):
-
-    work_date_obj = datetime.strptime(work_date, '%Y-%m-%d').date()
-    calendar_form = CalendarForm(initial_date=work_date_obj)
-
-    staff_works = StaffWorkModel.objects.filter(work_date=work_date).order_by('staff__order')
-
-    staff_list = []
-
-    for staff_work in staff_works:
-        staff_list.append({
-            'id':staff_work.staff.pk,
-            'name': staff_work.staff_name,
-            'work_status': staff_work.get_work_status_display(),
-            'work_places': [
-                getattr(staff_work, f'work{i}_place') for i in range(1, WORK_SESSION_COUNT + 1)
-                if getattr(staff_work, f'work{i}_place') 
-            ],
-        })
-
-    customer_works = CustomerWorkModel.objects.filter(work_date=work_date).order_by('customer__order')
-
-    customer_list = []
-
-    for customer_work in customer_works:
-        customer_list.append({
-            'id':customer_work.customer.pk,
-            'name': customer_work.customer_name,
-            'work_status': customer_work.get_work_status_display(),
-            'work_places': [
-                getattr(customer_work, f'work{i}_place') for i in range(1, WORK_SESSION_COUNT + 1)
-                if getattr(customer_work, f'work{i}_place') 
-            ],
-        })
-
-    # StaffModelに存在し、StaffWorkModelに存在しないスタッフを取得
-    staffs_with_work_entry = StaffWorkModel.objects.filter(work_date=work_date).values_list('staff', flat=True)
-    staffs_without_work_entry = StaffModel.objects.exclude(id__in=staffs_with_work_entry).order_by('order')
-
-    # CustomerModelに存在し、CustomerWorkModelに存在しないスタッフを取得
-    customers_with_work_entry = CustomerWorkModel.objects.filter(work_date=work_date).values_list('customer', flat=True)
-    customers_without_work_entry = CustomerModel.objects.exclude(id__in=customers_with_work_entry).order_by('order')
-    
-    return render(request,'app/config_work.html',{
-        'calendar_form':calendar_form,
-        'work_date':work_date,
-        'staff_list':staff_list,
-        'customer_list':customer_list,
-        'staffs_without_work_entry':staffs_without_work_entry,
-        'customers_without_work_entry':customers_without_work_entry,
-        })
-
-def create_work_data(work_date):
-    staffs = StaffModel.objects.all().order_by('order')
-    for staff in staffs:
-        apply_pattern_to_staff(staff.pk, work_date)
-
-    customers = CustomerModel.objects.all().order_by('order')
-    for customer in customers:
-        apply_pattern_to_customer(customer.pk, work_date)
-
-    copyLastPlaceRemarks(work_date)
-
-def create_staff_work_by_pattern(staff_id, work_date, work_status=None):
- 
-    staff = get_object_or_404(StaffModel, pk=staff_id)
-    staff_work = StaffWorkModel(
-        staff=staff, work_date=work_date, staff_name=staff.name
+    # staff
+    _create_records_from_pattern_common(
+        work_date=work_date,
+        owner_model=StaffModel,
+        record_model=StaffRecordModel,
+        owner_field='staff',
+        work_status_pattern_model=StaffWorkStatusPatternModel,
+        off_value=StaffWorkStatusEnum.OFF,
+        session_pattern_model=StaffSessionPatternModel,
+        session_record_model=StaffSessionRecordModel,
+        with_transport=False,
     )
 
-    staff_work.staff_name = staff.name
-
-    if work_status == StaffWorkStatusEnum.ON.value:
-        staff_work.work_status = work_status
-    else:
-        # 曜日ごとのステータスを設定
-        weekday_number = datetime.strptime(work_date, "%Y-%m-%d").date().weekday()
-        if weekday_number == 0:
-            staff_work.work_status = staff.work_status_mon
-        elif weekday_number == 1:
-            staff_work.work_status = staff.work_status_tue
-        elif weekday_number == 2:
-            staff_work.work_status = staff.work_status_wed        
-        elif weekday_number == 3:
-            staff_work.work_status = staff.work_status_thu
-        elif weekday_number == 4:
-            staff_work.work_status = staff.work_status_fri        
-        elif weekday_number == 5:
-            staff_work.work_status = staff.work_status_sat   
-        elif weekday_number == 6:
-            staff_work.work_status = staff.work_status_sun
-
-    # ステータスが「OFFICE」の場合に詳細を設定
-    if staff_work.work_status == StaffWorkStatusEnum.ON.value:
-        staff_work.work1_start_time = staff.work1_start_time
-        staff_work.work1_end_time = staff.work1_end_time
-        staff_work.work1_place = staff.work1_place
-        staff_work.work2_start_time = staff.work2_start_time
-        staff_work.work2_end_time = staff.work2_end_time
-        staff_work.work2_place = staff.work2_place
-        staff_work.work3_start_time = staff.work3_start_time
-        staff_work.work3_end_time = staff.work3_end_time
-        staff_work.work3_place = staff.work3_place
-        staff_work.work4_start_time = staff.work4_start_time
-        staff_work.work4_end_time = staff.work4_end_time
-        staff_work.work4_place = staff.work4_place
-        staff_work.lunch = staff.lunch
-        staff_work.eat_lunch_at = staff.eat_lunch_at
-
-    return staff_work
-
-def apply_pattern_to_staff(staff_id, work_date):
-    staff_work = create_staff_work_by_pattern(staff_id, work_date)
-
-    StaffWorkModel.objects.filter(staff_id=staff_id, work_date=work_date).delete()
-
-    staff_work.save()
-
-def create_customer_work_by_pattern(customer_id, work_date, work_status=None):
- 
-    customer = get_object_or_404(CustomerModel, pk=customer_id)
-    customer_work = CustomerWorkModel(
-        customer=customer, work_date=work_date, customer_name=customer.name
+    # customer
+    _create_records_from_pattern_common(
+        work_date=work_date,
+        owner_model=CustomerModel,
+        record_model=CustomerRecordModel,
+        owner_field='customer',
+        work_status_pattern_model=CustomerWorkStatusPatternModel,
+        off_value=CustomerWorkStatusEnum.OFF,
+        session_pattern_model=CustomerSessionPatternModel,
+        session_record_model=CustomerSessionRecordModel,
+        with_transport=True,
     )
 
-    customer_work.customer_name = customer.name
+def _create_work_sessions_from_pattern_common(
+    *,
+    record,
+    owner_field,
+    pattern_model,
+    session_record_model,
+):
+    owner = getattr(record, owner_field)
 
-    if work_status == CustomerWorkStatusEnum.OFFICE.value:
-        customer_work.work_status = work_status
-    else:
-    # 曜日ごとのステータスを設定
-        weekday_number = datetime.strptime(work_date, "%Y-%m-%d").date().weekday()
-        if weekday_number == 0:
-            customer_work.work_status = customer.work_status_mon
-        elif weekday_number == 1:
-            customer_work.work_status = customer.work_status_tue
-        elif weekday_number == 2:
-            customer_work.work_status = customer.work_status_wed        
-        elif weekday_number == 3:
-            customer_work.work_status = customer.work_status_thu
-        elif weekday_number == 4:
-            customer_work.work_status = customer.work_status_fri        
-        elif weekday_number == 5:
-            customer_work.work_status = customer.work_status_sat   
-        elif weekday_number == 6:
-            customer_work.work_status = customer.work_status_sun
+    patterns = pattern_model.objects.filter(
+        **{
+            owner_field: owner,
+            'weekday': _get_day(record.work_date),
+        }
+    )
 
-    # ステータスが「OFFICE」の場合に詳細を設定
-    if customer_work.work_status == CustomerWorkStatusEnum.OFFICE.value:
-        customer_work.morning_transport_means=customer.morning_transport_means
-        customer_work.pickup_place=customer.pickup_place
-        customer_work.pickup_staff=customer.pickup_staff
-        customer_work.pickup_time=customer.pickup_time
-        customer_work.return_transport_means=customer.return_transport_means
-        customer_work.dropoff_place=customer.dropoff_place
-        customer_work.dropoff_staff=customer.dropoff_staff
-        customer_work.dropoff_time=customer.dropoff_time
-        customer_work.dropoff_car=customer.dropoff_car
-        customer_work.work1_start_time = customer.work1_start_time
-        customer_work.work1_end_time = customer.work1_end_time
-        customer_work.work1_place = customer.work1_place
-        customer_work.work2_start_time = customer.work2_start_time
-        customer_work.work2_end_time = customer.work2_end_time
-        customer_work.work2_place = customer.work2_place
-        customer_work.work3_start_time = customer.work3_start_time
-        customer_work.work3_end_time = customer.work3_end_time
-        customer_work.work3_place = customer.work3_place
-        customer_work.work4_start_time = customer.work4_start_time
-        customer_work.work4_end_time = customer.work4_end_time
-        customer_work.work4_place = customer.work4_place
-        customer_work.lunch = customer.lunch
-        customer_work.eat_lunch_at = customer.eat_lunch_at
+    if not patterns.exists():
+        return
 
-    return customer_work
-
-def apply_pattern_to_customer(customer_id, work_date):
-    customer_work = create_customer_work_by_pattern(customer_id, work_date)
-
-    CustomerWorkModel.objects.filter(customer_id=customer_id, work_date=work_date).delete()
-
-    customer_work.save()
-
-def copyLastPlaceRemarks(work_date):
-
-    all_places = WorkPlaceModel.objects.all()
-    
-    for place in all_places:
-        latest_place_remarks = PlaceRemarksModel.objects.filter(place=place, work_date__lt=work_date).order_by('-work_date').first()
-
-        if latest_place_remarks:
-            # 最新のデータをコピー
-            new_place_remarks = PlaceRemarksModel(
-                place=place,
-                work_date=work_date,
-                remarks=latest_place_remarks.remarks,
-            )
-            # 新しいデータを保存
-            new_place_remarks.save()
-
-
-def staff_date_work(request, staff_id, work_date):
-    
-    staff = get_object_or_404(StaffModel, pk=staff_id)
-
-    staff_work = StaffWorkModel.objects.filter(staff=staff, work_date=work_date).first()
-    
-    if not staff_work:
-        staff_work = create_staff_work_by_pattern(staff_id=staff.pk, work_date=work_date)
-
-    form = StaffWorkForm(instance = staff_work)
-
-    return render(request, 'app/staff_date_work.html', {
-        'form': form,
-        'staff_id': staff_id,
-        'staff_name':staff.name,
-        'work_date': work_date,
-    })  
-
-def config_work_update_staff(request, staff_id, work_date):     
-    assert request.method == 'POST'
-
-    action = request.POST.get('action')
-
-    if action == 'pattern':
-        staff = get_object_or_404(StaffModel, pk=staff_id)
-
-        staff_work = create_staff_work_by_pattern(
-            staff_id=staff_id, 
-            work_date=work_date, 
-            work_status = StaffWorkStatusEnum.ON.value
+    with transaction.atomic():
+        for ptn in patterns:
+            session_record_model.objects.update_or_create(
+                record=record,
+                session_no=ptn.session_no,
+                defaults={
+                    'place': ptn.place,
+                    'start_time': ptn.start_time,
+                    'end_time': ptn.end_time,
+                }
             )
 
-        form = StaffWorkForm(instance = staff_work)
+def _get_day(work_date):
+    if isinstance(work_date, str):
+        work_date = datetime.strptime(work_date, "%Y-%m-%d").date()
+    return work_date.weekday() + 1
 
-        return render(request, 'app/staff_date_work.html', {
-                'form': form,
-                'staff_id': staff_id,
-                'staff_name':staff.name,
+def _resolve_work_status_common(
+    *,
+    owner,
+    work_date,
+    pattern_model,
+    owner_field,
+    off_value,
+):
+    pattern = pattern_model.objects.filter(
+        **{
+            owner_field: owner,
+            'weekday': _get_day(work_date),
+        }
+    ).first()
+
+    return pattern.work_status if pattern else off_value
+
+
+def _create_transports_from_pattern(customer_record, transport_type):
+    pattern = TransportPatternModel.objects.filter(
+        customer=customer_record.customer,
+        weekday=_get_day(customer_record.work_date),
+        transport_type = transport_type
+    ).first()
+
+    if not pattern:
+        # パターンがない場合は何もしない
+        return
+
+    with transaction.atomic():
+        obj, created = TransportRecordModel.objects.update_or_create(
+            customer = customer_record.customer,
+            record=customer_record,
+            transport_type = transport_type,
+            defaults={
+                'transport_means': pattern.transport_means,
+                'place': pattern.place,
+                'staff': pattern.staff,
+                'time': pattern.time,
+            }
+        )    
+def _create_records_from_pattern_common(
+    *,
+    work_date,
+    owner_model,
+    record_model,
+    owner_field,
+    work_status_pattern_model,
+    off_value,
+    session_pattern_model,
+    session_record_model,
+    with_transport=False,
+    order_field='order',
+):
+    owners = owner_model.objects.all().order_by(order_field)
+
+    for owner in owners:
+        _create_record_from_pattern_common(
+            owner=owner,
+            work_date=work_date,
+            record_model=record_model,
+            owner_field=owner_field,
+            work_status_pattern_model=work_status_pattern_model,
+            off_value=off_value,
+            session_pattern_model=session_pattern_model,
+            session_record_model=session_record_model,
+            with_transport=with_transport,
+        )
+
+def _create_record_from_pattern_common(
+    *,
+    owner,
+    work_date,
+    record_model,
+    owner_field,
+    work_status_pattern_model,
+    off_value,
+    session_pattern_model,
+    session_record_model,
+    with_transport=False,
+):
+    with transaction.atomic():
+        # 勤務ステータス解決
+        work_status = _resolve_work_status_common(
+            owner=owner,
+            work_date=work_date,
+            pattern_model=work_status_pattern_model,
+            owner_field=owner_field,
+            off_value=off_value,
+        )
+
+        # レコード作成 or 更新
+        rcd, created = record_model.objects.update_or_create(
+            **{
+                owner_field: owner,
                 'work_date': work_date,
-            })
-    
-    elif action == 'save':
-        staff = get_object_or_404(StaffModel, pk=staff_id)
+            },
+            defaults={
+                'work_status': work_status,
+            }
+        )
 
-        staff_work, created = StaffWorkModel.objects.get_or_create(staff=staff, work_date=work_date)
+        # 勤務セッション作成
+        _create_work_sessions_from_pattern_common(
+            record=rcd,
+            owner_field=owner_field,
+            pattern_model=session_pattern_model,
+            session_record_model=session_record_model,
+        )
 
-        form = StaffWorkForm(request.POST, instance=staff_work)
+        # 送迎（必要な場合のみ）
+        if with_transport:
+            _create_transports_from_pattern(rcd, TransportTypeEnum.MORNING)
+            _create_transports_from_pattern(rcd, TransportTypeEnum.RETURN)
 
-        if not form.is_valid():
-            # フォームが無効な場合、エラーメッセージと共に再レンダリング
-            print("エラー内容:", form.errors)
-            return render(request, 'app/staff_date_work.html', {
-                'form': form,
-                'staff_id': staff_id,
-                'staff_name':staff.name,
-                'work_date': work_date,
-            })
-        
-        StaffWorkModel.objects.filter(staff_id=staff_id, work_date=work_date).delete()
-        staff_work = form.save(commit=False)  # まずはコミットせずにインスタンスを取得
-        staff_work.work_date = work_date  # work_dateを設定
-        staff_work.save()  # インスタンスを保存
+    return rcd
 
-        if request.POST.get('change_pattern') == 'on':
-            # パターンを上書き
-            weekday_number = datetime.strptime(work_date, "%Y-%m-%d").date().weekday()
-            if weekday_number == 0:
-                staff.work_status_mon = staff_work.work_status
-            elif weekday_number == 1:
-                staff.work_status_tue = staff_work.work_status
-            elif weekday_number == 2:
-                staff.work_status_wed = staff_work.work_status        
-            elif weekday_number == 3:
-                staff.work_status_thu = staff_work.work_status
-            elif weekday_number == 4:
-                staff.work_status_fri = staff_work.work_status       
-            elif weekday_number == 5:
-                staff.work_status_sat = staff_work.work_status 
-            elif weekday_number == 6:
-                staff.work_status_sun = staff_work.work_status
+def _customer_extra_context(record):
+    return {
+        'morning_transport_form': _build_transport_form(
+            record,
+            TransportTypeEnum.MORNING,
+            prefix=_transport_prefix(TransportTypeEnum.MORNING),
+            form_class=TransportRecordForm,
+            is_record=True
+        ),
+        'return_transport_form': _build_transport_form(
+            record,
+            TransportTypeEnum.RETURN,
+            prefix=_transport_prefix(TransportTypeEnum.RETURN),
+            form_class=TransportRecordForm,
+            is_record=True
+        ),
+    }
 
-            if staff_work.work_status == StaffWorkStatusEnum.ON.value:
-                # 出勤のときだけ更新
-                staff.work1_start_time = staff_work.work1_start_time
-                staff.work1_end_time = staff_work.work1_end_time
-                staff.work1_place = staff_work.work1_place
-                staff.work2_start_time = staff_work.work2_start_time
-                staff.work2_end_time = staff_work.work2_end_time
-                staff.work2_place = staff_work.work2_place
-                staff.work3_start_time = staff_work.work3_start_time
-                staff.work3_end_time = staff_work.work3_end_time
-                staff.work3_place = staff_work.work3_place
-                staff.work4_start_time = staff_work.work4_start_time
-                staff.work4_end_time = staff_work.work4_end_time
-                staff.work4_place = staff_work.work4_place
-                staff.lunch = staff_work.lunch
-                staff.eat_lunch_at = staff_work.eat_lunch_at
+def _record_edit_common(
+    request,
+    *,
+    member_id,
+    work_date,
+    member_model,
+    record_model,
+    record_form_class,
+    session_model,
+    session_form_class,
+    template_name,
+    form_action_name,
+    member_field,            # 'staff' or 'customer'
+    extra_context_builder=None,
+):
+    member = get_object_or_404(member_model, pk=member_id)
 
-            staff.save()        
-        return redirect('info', work_date)
-
-    else: # cancel
-        return redirect('info', work_date)
-       
-def customer_date_work(request, customer_id, work_date):
-
-    customer = get_object_or_404(CustomerModel, pk=customer_id)
-
-    customer_work = CustomerWorkModel.objects.filter(customer=customer, work_date=work_date).first()
-
-    if not customer_work:
-        customer_work = create_customer_work_by_pattern(customer_id=customer_id, work_date=work_date)
-
-    form = CustomerWorkForm(instance = customer_work)
-
-    return render(request, 'app/customer_date_work.html', {
-            'form': form,
-            'customer_id': customer_id,
-            'customer_name':customer.name,
+    record, created = record_model.objects.get_or_create(
+        **{
+            member_field: member,
             'work_date': work_date,
-        })
+        }
+    )
 
-def config_work_update_customer(request, customer_id, work_date):     
+    record_form = record_form_class(instance=record)
+
+    existing_sessions = list(
+        session_model.objects
+        .filter(record=record)
+        .order_by('session_no')
+    )
+
+    session_forms = _build_session_forms(
+        existing_sessions,
+        form_class=session_form_class,
+        prefix_func=lambda i: _session_index_prefix(i)
+    )
+
+    form_action = reverse(
+        form_action_name,
+        kwargs={
+            f'{member_field}_id': member_id,
+            'work_date': work_date,
+        }
+    )
+
+    context = {
+        f'{member_field}_id': member_id,
+        f'{member_field}_name': member.name,
+        'work_date': work_date,
+        'record_form': record_form,
+        'session_forms': session_forms,
+        'transfer_value': TransportMeansEnum.TRANSFER,
+        'form_action': form_action,
+    }
+
+    if extra_context_builder:
+        context.update(extra_context_builder(record))
+
+    return render(request, template_name, context)
+
+
+
+#################################################
+# 情報画面のスタッフの編集ボタンを押したときの処理
+# スタッフ実績の編集画面を表示する
+################################################
+def staff_record_edit(request, staff_id, work_date):
+
+    return _record_edit_common(
+            request,
+            member_id=staff_id,
+            work_date=work_date,
+            member_model=StaffModel,
+            record_model=StaffRecordModel,
+            record_form_class=StaffRecordForm,
+            session_model=StaffSessionRecordModel,
+            session_form_class=StaffSessionRecordForm,
+            template_name='app/staff_record_edit.html',
+            form_action_name=staff_record_save,
+            member_field='staff',
+        )
+    # staff = get_object_or_404(StaffModel, pk=staff_id)
+
+    # record, created = StaffRecordModel.objects.get_or_create(
+    #     staff=staff,
+    #     work_date=work_date,
+    # ) 
+
+    # record_form = StaffRecordForm(
+    #     instance = record
+    # )
+
+    # # 勤務セッションフォーム
+    # existing_sessions = list(StaffSessionRecordModel.objects.filter(
+    #     record = record,
+    #     ).order_by('session_no'))
+    
+    # session_forms = _build_session_forms(
+    #     existing_sessions,
+    #     form_class=StaffSessionRecordForm,
+    #     prefix_func=lambda i: _session_index_prefix(i)
+    # )
+
+    # form_action = reverse(
+    #     staff_record_save,
+    #     kwargs={
+    #         'staff_id': staff_id, 
+    #         'work_date' : work_date
+    #         }
+    # )    
+
+    # return render(request, 'app/staff_record_edit.html', {
+    #         'staff_id': staff_id,
+    #         'staff_name':staff.name,
+    #         'work_date': work_date,
+    #         'record_form': record_form,
+    #         'session_forms':session_forms,
+    #         'transfer_value': TransportMeansEnum.TRANSFER,
+    #         'form_action':form_action,
+    #     })
+
+       
+#################################################
+# 情報画面の利用者の編集ボタンを押したときの処理
+# 利用者実績の編集画面を表示する
+################################################
+def customer_record_edit(request, customer_id, work_date):
+    return _record_edit_common(
+            request,
+            member_id=customer_id,
+            work_date=work_date,
+            member_model=CustomerModel,
+            record_model=CustomerRecordModel,
+            record_form_class=CustomerRecordForm,
+            session_model=CustomerSessionRecordModel,
+            session_form_class=CustomerSessionRecordForm,
+            template_name='app/customer_record_edit.html',
+            form_action_name=customer_record_save,
+            member_field='customer',
+            extra_context_builder=_customer_extra_context,
+        )
+    # customer = get_object_or_404(CustomerModel, pk=customer_id)
+
+    # record, created = CustomerRecordModel.objects.get_or_create(
+    #     customer=customer,
+    #     work_date=work_date,
+    # ) 
+
+    # record_form = CustomerRecordForm(
+    #     instance = record
+    # )
+
+    # # 勤務セッションフォーム
+    # existing_sessions = list(CustomerSessionRecordModel.objects.filter(
+    #     record = record,
+    #     ).order_by('session_no'))
+    
+    # session_forms = _build_session_forms(
+    #     existing_sessions,
+    #     form_class=CustomerSessionRecordForm,
+    #     prefix_func=lambda i: _session_index_prefix(i)
+    # )
+
+    # # 送迎フォーム
+    # morning_transport_form = _build_transport_form(
+    #     record, TransportTypeEnum.MORNING,
+    #     prefix=_transport_prefix(TransportTypeEnum.MORNING),
+    #     form_class=TransportRecordForm,
+    #     is_record=True
+    # )
+
+    # return_transport_form = _build_transport_form(
+    #     record, TransportTypeEnum.RETURN,
+    #     prefix=_transport_prefix(TransportTypeEnum.RETURN),
+    #     form_class=TransportRecordForm,
+    #     is_record=True
+    # )
+
+    # form_action = reverse(
+    #     customer_record_save,
+    #     kwargs={
+    #         'customer_id': customer_id, 
+    #         'work_date' : work_date
+    #         }
+    # )    
+
+    # return render(request, 'app/customer_record_edit.html', {
+    #         'customer_id': customer_id,
+    #         'customer_name':customer.name,
+    #         'work_date': work_date,
+    #         'record_form': record_form,
+    #         'session_forms':session_forms,
+    #         'morning_transport_form':morning_transport_form,
+    #         'return_transport_form':return_transport_form,
+    #         'transfer_value': TransportMeansEnum.TRANSFER,
+    #         'form_action':form_action,
+    #     })
+
+
+def _build_session_forms(existing_sessions, form_class, prefix_func):
+    session_forms = []
+
+    for i in range(WORK_SESSION_COUNT):
+        if i < len(existing_sessions):
+            session_instance = existing_sessions[i]
+        else:
+            session_instance = None
+
+        form = form_class(
+            instance=session_instance,
+            prefix=prefix_func(i),
+            initial={'session_no': i + 1} if session_instance is None else None
+        )
+
+        session_forms.append(form)
+
+    return session_forms
+
+
+#################################################
+# スタッフ実績画面でボタン(保存/キャンセル)を
+# 押したときの処理
+################################################
+def staff_record_save(request, staff_id, work_date):     
     assert request.method == 'POST'
 
     action = request.POST.get('action')
 
-    if action == 'pattern':
-        customer = get_object_or_404(CustomerModel, pk=customer_id)
+    if action == 'save':
+        staff = get_object_or_404(StaffModel, pk=staff_id)
 
-        customer_work = create_customer_work_by_pattern(
-            customer_id = customer_id, 
-            work_date = work_date,
-            work_status = CustomerWorkStatusEnum.OFFICE.value
+        StaffRecordModel.objects.get_or_create(staff=staff, work_date=work_date)
+
+        record_form = StaffRecordForm(request.POST)  
+
+        if record_form.is_valid():
+            record, created = StaffRecordModel.objects.update_or_create(
+                staff=staff,
+                work_date=work_date,
+                defaults=record_form.cleaned_data
+            )   
+
+        # 勤務セッションを保存
+        for i in range(WORK_SESSION_COUNT):
+            session_form = StaffSessionRecordForm(
+                request.POST,
+                prefix=_session_index_prefix(i)
             )
 
-        form = CustomerWorkForm(instance = customer_work)
+            if not session_form.is_valid():
+                continue  # 入力がないフォームは無視
 
-        return render(request, 'app/customer_date_work.html', {
-                'form': form,
-                'customer_id': customer_id,
-                'customer_name':customer.name,
-                'work_date': work_date,
-            })
-        
-    elif action == 'save':
+            cd = session_form.cleaned_data
+
+            StaffSessionRecordModel.objects.update_or_create(
+                record=record,  
+                session_no=i + 1,
+                defaults={            
+                    'place': cd['place'],
+                    'start_time': cd['start_time'],
+                    'end_time': cd['end_time'],
+                }
+            )
+
+    return redirect('info', work_date)
+
+#################################################
+# 利用者実績画面でボタン(保存/キャンセル)を
+# 押したときの処理
+################################################
+def customer_record_save(request, customer_id, work_date):   
+    assert request.method == 'POST'
+
+    action = request.POST.get('action')
+
+    if action == 'save':
         customer = get_object_or_404(CustomerModel, pk=customer_id)
 
-        customer_work, created = CustomerWorkModel.objects.get_or_create(customer=customer, work_date=work_date)
+        CustomerRecordModel.objects.get_or_create(customer=customer, work_date=work_date)
 
-        form = CustomerWorkForm(request.POST, instance=customer_work)
+        record_form = CustomerRecordForm(request.POST)  
 
-        if not form.is_valid():
-            # フォームが無効な場合、エラーメッセージと共に再レンダリング
-            print("エラー内容:", form.errors)
-            return render(request, 'app/customer_date_work.html', {
-                'form': form,
-                'customer_id': customer_id,
-                'customer_name':customer.name,
-                'work_date': work_date
-            })
-        
-        CustomerWorkModel.objects.filter(customer_id=customer_id, work_date=work_date).delete()
-        customer_work = form.save(commit=False)  # まずはコミットせずにインスタンスを取得
-        customer_work.work_date = work_date
-        form.save()
+        if record_form.is_valid():
+            record, created = CustomerRecordModel.objects.update_or_create(
+                customer=customer,
+                work_date=work_date,
+                defaults=record_form.cleaned_data
+            )   
 
-        if request.POST.get('change_pattern') == 'on':
-            # パターンを上書き
-            weekday_number = datetime.strptime(work_date, "%Y-%m-%d").date().weekday()
-            if weekday_number == 0:
-                customer.work_status_mon = customer_work.work_status
-            elif weekday_number == 1:
-                customer.work_status_tue = customer_work.work_status
-            elif weekday_number == 2:
-                customer.work_status_wed = customer_work.work_status        
-            elif weekday_number == 3:
-                customer.work_status_thu = customer_work.work_status
-            elif weekday_number == 4:
-                customer.work_status_fri = customer_work.work_status       
-            elif weekday_number == 5:
-                customer.work_status_sat = customer_work.work_status 
-            elif weekday_number == 6:
-                customer.work_status_sun = customer_work.work_status
+        # 勤務セッションを保存
+        for i in range(WORK_SESSION_COUNT):
+            session_form = CustomerSessionRecordForm(
+                request.POST,
+                prefix=_session_index_prefix(i)
+            )
 
-            if customer_work.work_status == CustomerWorkStatusEnum.OFFICE.value:
-                # 通所のときだけ更新
-                customer.morning_transport_means = customer_work.morning_transport_means
-                customer.pickup_place = customer_work.pickup_place
-                customer.pickup_staff = customer_work.pickup_staff
-                customer.pickup_time = customer_work.pickup_time
-                customer.pickup_car = customer_work.pickup_car
-                customer.return_transport_means = customer_work.return_transport_means
-                customer.dropoff_place = customer_work.dropoff_place
-                customer.dropoff_staff = customer_work.dropoff_staff
-                customer.dropoff_time = customer_work.dropoff_time
-                customer.dropoff_car = customer_work.dropoff_car
-                customer.work1_start_time = customer_work.work1_start_time
-                customer.work1_end_time = customer_work.work1_end_time
-                customer.work1_place = customer_work.work1_place
-                customer.work2_start_time = customer_work.work2_start_time
-                customer.work2_end_time = customer_work.work2_end_time
-                customer.work2_place = customer_work.work2_place
-                customer.work3_start_time = customer_work.work3_start_time
-                customer.work3_end_time = customer_work.work3_end_time
-                customer.work3_place = customer_work.work3_place
-                customer.work4_start_time = customer_work.work4_start_time
-                customer.work4_end_time = customer_work.work4_end_time
-                customer.work4_place = customer_work.work4_place
-                customer.lunch = customer_work.lunch
-                customer.eat_lunch_at = customer_work.eat_lunch_at
+            if not session_form.is_valid():
+                continue  # 入力がないフォームは無視
 
-            customer.save()
+            cd = session_form.cleaned_data
 
-        return redirect('info', work_date)
+            CustomerSessionRecordModel.objects.update_or_create(
+                record=record,  
+                session_no=i + 1,
+                defaults={            
+                    'place': cd['place'],
+                    'start_time': cd['start_time'],
+                    'end_time': cd['end_time'],
+                }
+            )
 
-    else: # cancel
-        return redirect('info', work_date)
+        # 送迎を保存
+        _save_transport_record(request, record, TransportTypeEnum.MORNING)
+        _save_transport_record(request, record, TransportTypeEnum.RETURN)
 
-def place_remarks(request, place_id, work_date):
-    place = WorkPlaceModel.objects.get(pk=place_id)
-    place_remarks = PlaceRemarksModel.objects.filter(place=place, work_date=work_date).first()
-    if not place_remarks:
-        place_remarks = PlaceRemarksModel(place=place,work_date=work_date)
+    return redirect('info', work_date)
 
+def _save_transport_record(request, record, transport_type):
+
+    form = TransportRecordForm(
+        request.POST,
+        transport_type=transport_type,
+        prefix=_transport_prefix(transport_type)
+    )
+
+    if not form.is_valid():
+        print(form.errors)
+        return False
+
+    cd = form.cleaned_data
+
+    TransportRecordModel.objects.update_or_create(
+        customer=record.customer,
+        record = record,
+        transport_type=transport_type,
+        defaults={
+            'transport_means': cd['transport_means'],
+            'place': cd['place'],
+            'staff': cd['staff'],
+            'time': cd['time'],
+        }
+    )
+
+    return True
+
+def place_remarks_edit(request, place_id, work_date):
+    place = PlaceModel.objects.get(pk=place_id)
+
+    place_remarks, created = PlaceRemarksModel.objects.get_or_create(
+        place=place, 
+        work_date=work_date,
+    )
 
     form = PlaceRemarksForm(instance=place_remarks)
-    return render(request, 'app/place_remarks.html',{'form':form, 'place':place,'work_date':work_date,'place_remarks': place_remarks,})
 
-def save_place_remarks(request, place_id, work_date):
+    return render(
+        request, 
+        'app/place_remarks.html',
+        {
+            'form':form,
+            'place':place,
+            'work_date':work_date,
+            'place_remarks': place_remarks,
+        })
+
+def place_remarks_save(request, place_id, work_date):
     assert request.method == 'POST'    
 
     action = request.POST.get('action')
 
-    place = get_object_or_404(WorkPlaceModel, pk=place_id)
+    if action == 'cancel':
+        return
 
-    if action == 'save':
-        place_remarks, created = PlaceRemarksModel.objects.get_or_create(
-            place=place,
-            work_date=work_date,
-            defaults={'remarks': ''}
-        )
+    place = get_object_or_404(PlaceModel, pk=place_id)
 
-        form = PlaceRemarksForm(request.POST, instance=place_remarks)
-            
-        if form.is_valid():
-            place_remarks.save()
-            
-    elif action == 'cancel':
-        ""# do nothing
+    place_remarks, created = PlaceRemarksModel.objects.get_or_create(
+        place=place,
+        work_date=work_date,
+        defaults={'remarks': ''}
+    )
+
+    form = PlaceRemarksForm(request.POST, instance=place_remarks)
+        
+    if form.is_valid():
+        place_remarks.save()
 
     return redirect('info', work_date=work_date)
 
-def staff(request):
+def _list_dispatch(request, kind):
+    assert request.method == 'POST'
+
+    create = request.POST.get('create')
+    up = request.POST.get('up')
+    down = request.POST.get('down')
+    edit = request.POST.get('edit')
+    
+    create_url = f'{kind}_create'
+    list_url   = f'{kind}_list'
+    edit_url   = f'{kind}_edit'
+    id_field = f'{kind}_id'
+
+    if create:
+        return redirect(create_url)
+    elif up:
+        MOVE_UP_FUNCS[kind](up)
+        return redirect(list_url)
+    elif down:
+        MOVE_DOWN_FUNCS[kind](down)
+        return redirect(list_url)
+    elif edit:
+        return redirect(edit_url, **{id_field: edit})
+    return redirect(list_url)    
+
+def staff_list_dispatch(request):
+    return _list_dispatch(request, kind='staff') 
+
+def staff_list(request):
     staffs = StaffModel.objects.all().order_by('order')
-    return render(request, 'app/staff.html',{'staffs':staffs})
+    return render(request, 'app/staff_list.html',{'staffs':staffs})
 
-def config_staff_dispatch(request):
-    assert request.method == 'POST'
+def _move_order_up(model, pk):
+    obj = get_object_or_404(model, pk=pk)
 
-    create = request.POST.get('create')
-    up = request.POST.get('up')
-    down = request.POST.get('down')
-    update = request.POST.get('update')
-    delete = request.POST.get('delete')
-    
-    if create:
-        return redirect('config_staff_create')
-    elif up:
-        staff_id = up
-        move_staff_up(staff_id)
-        return redirect('staff')
-    elif down:
-        staff_id = down
-        move_staff_down(staff_id)
-        return redirect('staff')
-    elif update:
-        staff_id = update
-        return redirect('config_staff_update', staff_id=staff_id)
-    elif delete:
-        staff_id = delete
-        return redirect('config_staff_delete', staff_id=staff_id)
-    return redirect('staff')
+    prev_obj = model.objects.filter(
+        order__lt=obj.order
+    ).order_by('-order').first()
 
-def move_staff_up(staff_id):
-    staff = get_object_or_404(StaffModel, pk=staff_id)
-    previous_staff = StaffModel.objects.filter(order__lt=staff.order).order_by('-order').first()
-    if previous_staff:
-        # 現在のスタッフと前のスタッフのorderを入れ替える
-        staff.order, previous_staff.order = previous_staff.order, staff.order
-        staff.save()
-        previous_staff.save()
+    if not prev_obj:
+        return
 
-def move_staff_down(staff_id):
-    staff = get_object_or_404(StaffModel, pk=staff_id)
-    next_staff = StaffModel.objects.filter(order__gt=staff.order).order_by('order').first()
-    if next_staff:
-        # 現在のスタッフと次のスタッフのorderを入れ替える
-        staff.order, next_staff.order = next_staff.order, staff.order
-        staff.save()
-        next_staff.save()
+    obj.order, prev_obj.order = prev_obj.order, obj.order
+    obj.save()
+    prev_obj.save()
 
-def config_staff_create(request):
-    form = StaffForm()
-    return render(request, 'app/staff_pattern.html', {'form': form, 'staff_id':0})
+def _move_order_down(model, pk):
+    obj = get_object_or_404(model, pk=pk)
 
-def config_staff_update(request,staff_id):
-    staff = get_object_or_404(StaffModel, pk=staff_id)
-    form = StaffForm(instance=staff)  
-        
-    return render(request, 'app/staff_pattern.html', {'form': form, 'staff_id':staff_id})
+    next_obj = model.objects.filter(
+        order__gt=obj.order
+    ).order_by('order').first()
 
-def config_staff_save(request, staff_id):
+    if not next_obj:
+        return
+
+    obj.order, next_obj.order = next_obj.order, obj.order
+    obj.save()
+    next_obj.save()
+
+def staff_create(request):
+    return _create_or_edit_staff(request)
+
+def staff_edit(request,staff_id):
+    return _create_or_edit_staff(request, staff_id)
+
+def _create_or_edit_common(
+    *,
+    request,
+    owner_id,
+    owner_model,
+    owner_form_class,
+    build_patterns_kwargs,
+    save_url_name,
+    id_kwarg_name,
+    template_name,
+    context_name,
+):
+    owner = (
+        get_object_or_404(owner_model, id=owner_id)
+        if owner_id else owner_model()
+    )
+
+    form = owner_form_class(instance=owner)
+
+    day_patterns = _build_patterns(
+        owner=owner,
+        **build_patterns_kwargs
+    )
+
+    owner_id_value = owner.id if owner.pk else 0
+
+    form_action = reverse(
+        save_url_name,
+        kwargs={id_kwarg_name: owner_id_value}
+    )
+
+    return render(request, template_name, {
+        context_name: form,
+        'day_patterns': day_patterns,
+        id_kwarg_name: owner_id_value,
+        'form_action': form_action,
+        'transfer_value': TransportMeansEnum.TRANSFER,
+    })
+
+
+def _create_or_edit_staff(request, staff_id=None):
+    return _create_or_edit_common(
+        request=request,
+        owner_id=staff_id,
+        owner_model=StaffModel,
+        owner_form_class=StaffForm,
+        build_patterns_kwargs=dict(
+            work_status_pattern_model=StaffWorkStatusPatternModel,
+            work_status_pattern_form=StaffWorkStatusPatternForm,
+            session_pattern_model=StaffSessionPatternModel,
+            session_form_class=StaffSessionPatternForm,
+            owner_field='staff',
+        ),
+        save_url_name='staff_save',
+        id_kwarg_name='staff_id',
+        template_name='app/staff_edit.html',
+        context_name='staff_form',
+    )
+
+def _build_patterns(
+    *,
+    owner,
+    work_status_pattern_model,
+    work_status_pattern_form,
+    session_pattern_model,
+    session_form_class,
+    owner_field,
+    extra_builder=None,
+):
+    day_patterns = []
+
+    for day in WeekdayEnum:
+        # 勤務ステータス
+        work_status_form = _build_work_status(
+            owner=owner,
+            day_value=day.value,
+            pattern_model=work_status_pattern_model,
+            owner_field=owner_field,
+            form_class=work_status_pattern_form,
+        )
+
+        # セッション
+        if owner.pk:
+            existing_sessions = list(
+                session_pattern_model.objects.filter(
+                    **{owner_field: owner, 'weekday': day.value}
+                ).order_by('session_no')
+            )
+        else:
+            existing_sessions = [None] * WORK_SESSION_COUNT
+
+        session_forms = _build_session_forms(
+            existing_sessions,
+            form_class=session_form_class,
+            prefix_func=lambda i, dv=day.value: _session_prefix(dv, i)
+        )
+
+        pattern = {
+            'value': day.value,
+            'label': day.label,
+            'work_status_form': work_status_form,
+            'session_forms': session_forms,
+        }
+
+        # customer 専用（送迎など）
+        if extra_builder:
+            pattern.update(extra_builder(owner, day.value))
+
+        day_patterns.append(pattern)
+
+    return day_patterns
+
+def _build_customer_extra(customer, day_value):
+    return {
+        'morning_transport_form': _build_transport_form(
+            customer,
+            TransportTypeEnum.MORNING,
+            prefix=_transport_day_prefix(day_value, TransportTypeEnum.MORNING),
+            form_class=TransportPatternForm,
+            is_record=False,
+            day_value=day_value
+        ),
+        'return_transport_form': _build_transport_form(
+            customer,
+            TransportTypeEnum.RETURN,
+            prefix=_transport_day_prefix(day_value, TransportTypeEnum.RETURN),
+            form_class=TransportPatternForm,
+            is_record=False,
+            day_value=day_value
+        ),
+    }
+
+def _build_work_status(
+    *,
+    owner,              # customer or staff の instance
+    day_value,
+    pattern_model,      # WorkStatusPatternModel
+    owner_field,        # 'customer' or 'staff'
+    form_class
+):
+    if owner.pk:
+        instance = pattern_model.objects.filter(
+            **{owner_field: owner, 'weekday': day_value}
+        ).first()
+    else:
+        instance = None
+
+    return form_class(
+        instance=instance,
+        prefix=_day_prefix(day_value),
+        initial={'weekday': day_value}
+    )
+
+def _save_common(
+    *,
+    request,
+    owner_id,
+    owner_model,
+    owner_form_class,
+    work_status_form_class,
+    work_status_model,
+    session_form_class,
+    session_model,
+    owner_field,
+    list_redirect_name,
+    extra_save=None,
+):
     assert request.method == 'POST'
 
     action = request.POST.get('action')
 
-    if action == 'save':  
-        print('save')  
-        if staff_id == 0:
-            form = StaffForm(request.POST) 
-            template_name = 'config_staff_create'
-        else:
-            staff = StaffModel.objects.filter(pk=staff_id).first()
-            form = StaffForm(request.POST, instance=staff) 
-            template_name = 'config_staff_update'        
+    if action != 'save':
+        return redirect(list_redirect_name)
 
-        if form.is_valid():
-            form.save()
-            return redirect('staff')
-        else:
-            return render(request, template_name, {'form': form, 'staff_id':staff_id})
-    else: # cancel
-        return redirect('staff')
+    # ---- owner 保存 ----
+    if owner_id == 0:
+        owner = None
+        form = owner_form_class(request.POST)
+    else:
+        owner = owner_model.objects.filter(pk=owner_id).first()
+        form = owner_form_class(request.POST, instance=owner)
 
-def config_staff_delete(request, staff_id):
-    staff = get_object_or_404(StaffModel, pk=staff_id)
-    staff.delete()
-    return redirect('staff')
+    if not form.is_valid():
+        # エラー時は元のページに飛ばした方が本当はいい
+        # if customer_id == 0: #新規作成
+        #     customer = None
+        #     customer_form = CustomerForm(request.POST) 
+        #     template_name = 'customer_create'
+        # else:
+        #     customer = CustomerModel.objects.filter(pk=customer_id).first()
+        #     customer_form = CustomerForm(request.POST, instance=customer) 
+        #     template_name = 'edit_customer'    
 
-def customer(request):
+        # if not customer_form.is_valid():
+        #     return render(
+        #         request,
+        #         template_name,
+        #         {'form': customer_form, 'customer_id': customer_id}
+        #     )
+        return redirect(list_redirect_name)
+
+    with transaction.atomic():
+        owner = form.save()
+
+        for day in WeekdayEnum:
+            # ---- 勤務ステータス ----
+            ws_form = work_status_form_class(
+                request.POST,
+                prefix=_day_prefix(day.value)
+            )
+
+            if ws_form.is_valid():
+                ws_cd = ws_form.cleaned_data
+                work_status_model.objects.update_or_create(
+                    **{
+                        owner_field: owner,
+                        'weekday': day.value,
+                    },
+                    defaults={
+                        'work_status': ws_cd['work_status']
+                    }
+                )
+
+            # ---- 勤務セッション ----
+            for i in range(WORK_SESSION_COUNT):
+                session_form = session_form_class(
+                    request.POST,
+                    prefix=_session_prefix(day.value, i)
+                )
+
+                if not session_form.is_valid():
+                    continue
+
+                sf_cd = session_form.cleaned_data
+
+                session_model.objects.update_or_create(
+                    **{
+                        owner_field: owner,
+                        'weekday': day.value,
+                        'session_no': i + 1,
+                    },
+                    defaults={
+                        'place': sf_cd['place'],
+                        'start_time': sf_cd['start_time'],
+                        'end_time': sf_cd['end_time'],
+                    }
+                )
+            # ---------- customer 固有処理 ----------
+            if extra_save:
+                extra_save(
+                    request=request,
+                    owner=owner,
+                    day_value=day.value
+                )
+
+    return redirect(list_redirect_name)
+
+def _customer_extra_save(*, request, owner, day_value):
+    # 朝
+    _save_transport_pattern(
+        request,
+        customer=owner,
+        day_value=day_value,
+        transport_type=TransportTypeEnum.MORNING,
+    )
+
+    # 帰り
+    _save_transport_pattern(
+        request,
+        customer=owner,
+        day_value=day_value,
+        transport_type=TransportTypeEnum.RETURN,
+    )    
+
+def staff_save(request, staff_id):
+    return _save_common(
+        request=request,
+        owner_id=staff_id,
+        owner_model=StaffModel,
+        owner_form_class=StaffForm,
+        work_status_form_class=StaffWorkStatusPatternForm,
+        work_status_model=StaffWorkStatusPatternModel,
+        session_form_class=StaffSessionPatternForm,
+        session_model=StaffSessionPatternModel,
+        owner_field='staff',
+        list_redirect_name='staff_list',
+    )
+
+def customer_list_dispatch(request):
+    return _list_dispatch(request, kind='customer')
+
+def customer_list(request):
     customers = CustomerModel.objects.all().order_by('order')
-    return render(request, 'app/customer.html',{'customers':customers})
+    return render(request, 'app/customer_list.html', { 'customers':customers, })
 
-def config_customer_dispatch(request):
-    assert request.method == 'POST'
+def customer_create(request):
+    return _create_or_edit_customer(request)
 
-    create = request.POST.get('create')
-    up = request.POST.get('up')
-    down = request.POST.get('down')
-    update = request.POST.get('update')
-    delete = request.POST.get('delete')
+def customer_edit(request, customer_id):
+    return _create_or_edit_customer(request, customer_id)
+
+def _create_or_edit_customer(request, customer_id=None):
+    return _create_or_edit_common(
+        request=request,
+        owner_id=customer_id,
+        owner_model=CustomerModel,
+        owner_form_class=CustomerForm,
+        build_patterns_kwargs=dict(
+            work_status_pattern_model=CustomerWorkStatusPatternModel,
+            work_status_pattern_form=CustomerWorkStatusPatternForm,
+            session_pattern_model=CustomerSessionPatternModel,
+            session_form_class=CustomerSessionPatternForm,
+            owner_field='customer',
+            extra_builder=_build_customer_extra,
+        ),
+        save_url_name='customer_save',
+        id_kwarg_name='customer_id',
+        template_name='app/customer_edit.html',
+        context_name='customer_form',
+    )
     
-    if create:
-        return redirect('config_customer_create')
-    elif up:
-        customer_id = up
-        move_customer_up(customer_id)
-        return redirect('customer')
-    elif down:
-        customer_id = down
-        move_customer_down(customer_id)
-        return redirect('customer')
-    elif update:
-        customer_id = update
-        return redirect('config_customer_update', customer_id=customer_id)
-    elif delete:
-        customer_id = delete
-        return redirect('config_customer_delete', customer_id=customer_id)
-    
-    return redirect('customer')
+def _day_prefix(day_value):
+    return f'day{day_value}'
 
-def move_customer_up(customer_id):
-    customer = get_object_or_404(CustomerModel, pk=customer_id)
-    previous_customer = CustomerModel.objects.filter(order__lt=customer.order).order_by('-order').first()
-    if previous_customer:
-        # 現在の利用者と前の利用者のorderを入れ替える
-        customer.order, previous_customer.order = previous_customer.order, customer.order
-        customer.save()
-        previous_customer.save()
+def _session_index_prefix(index):
+    return f'session{index+1}'
 
-def move_customer_down(customer_id):
-    customer = get_object_or_404(CustomerModel, pk=customer_id)
-    next_customer = CustomerModel.objects.filter(order__gt=customer.order).order_by('order').first()
-    if next_customer:
-        # 現在の利用者と次の利用者のorderを入れ替える
-        customer.order, next_customer.order = next_customer.order, customer.order
-        customer.save()
-        next_customer.save()
+def _session_prefix(day_value, index):
+    return f'{_day_prefix(day_value)}_{_session_index_prefix(index)}'
 
-def config_customer_create(request):
-    form = CustomerForm()
-    return render(request, 'app/customer_pattern.html', {'form': form, 'customer_id':0})
+def _transport_prefix(transport_type):
+    if transport_type == TransportTypeEnum.MORNING:
+        return 'morning'
+    else:
+        return 'return'
 
-def config_customer_update(request,customer_id):
-    customer = get_object_or_404(CustomerModel, pk=customer_id)
-    form = CustomerForm(instance=customer)  
-        
-    return render(request, 'app/customer_pattern.html', {'form': form, 'customer_id':customer_id})
+def _transport_day_prefix(day_value, transport_type):
+    return f'{_day_prefix(day_value)}_{_transport_prefix(transport_type)}'
 
-def config_customer_save(request, customer_id):
-    assert request.method == 'POST'
+def _build_transport_form(obj, transport_type, prefix, form_class, *, is_record=False, day_value=None):
 
-    action = request.POST.get('action')
+    instance = None
 
-    if action == 'save':
-        if customer_id == 0:
-            form = CustomerForm(request.POST) 
-            template_name = 'config_customer_create'
+    if obj:
+        if is_record:
+            instance = TransportRecordModel.objects.filter(
+                record=obj,
+                transport_type=transport_type
+            ).first()
         else:
-            customer = CustomerModel.objects.filter(pk=customer_id).first()
-            form = CustomerForm(request.POST, instance=customer) 
-            template_name = 'config_customer_update'        
+            if obj.pk is not None:
+                instance = TransportPatternModel.objects.filter(
+                    customer=obj,
+                    weekday=day_value,
+                    transport_type=transport_type
+                ).first()
 
-        if form.is_valid():
-            form.save()
-            return redirect('customer')
-        else:
-            return render(request, template_name, {'form': form, 'customer_id':customer_id})
-    else: # cancel
-        return redirect('customer')
+    return form_class(
+        instance=instance,
+        transport_type=transport_type,
+        prefix=prefix
+    )
 
-def config_customer_delete(request, customer_id):
-    customer = get_object_or_404(CustomerModel, pk=customer_id)
-    customer.delete()
-    return redirect('customer')
+def customer_save(request, customer_id):
+    return _save_common(
+        request=request,
+        owner_id=customer_id,
+        owner_model=CustomerModel,
+        owner_form_class=CustomerForm,
+        work_status_form_class=CustomerWorkStatusPatternForm,
+        work_status_model=CustomerWorkStatusPatternModel,
+        session_form_class=CustomerSessionPatternForm,
+        session_model=CustomerSessionPatternModel,
+        owner_field='customer',
+        list_redirect_name='customer_list',
+        extra_save=_customer_extra_save,
+    )
+
+def _save_transport_pattern(request, customer, day_value, transport_type):
+
+    form = TransportPatternForm(
+        request.POST,
+        transport_type=transport_type,
+        prefix=_transport_day_prefix(day_value, transport_type)
+    )
+
+    if not form.is_valid():
+        print(form.errors)
+        return False
+
+    cd = form.cleaned_data
+
+    TransportPatternModel.objects.update_or_create(
+        customer=customer,
+        weekday=day_value,
+        transport_type=transport_type,
+        defaults={
+            'transport_means': cd['transport_means'],
+            'place': cd['place'],
+            'staff': cd['staff'],
+            'time': cd['time'],
+        }
+    )
+
+    return True
 
 def export(request):
 
@@ -1075,7 +1424,7 @@ def export_execute(request):
 
 def exportCustomerWorkData(start_date, end_date):
 
-    queryset = CustomerWorkModel.objects.filter(work_date__range=[start_date, end_date]).order_by('customer_id', 'work_date')
+    queryset = CustomerRecordModel.objects.filter(work_date__range=[start_date, end_date]).order_by('customer_id', 'work_date')
 
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="customer_work_data.csv"'
@@ -1086,31 +1435,27 @@ def exportCustomerWorkData(start_date, end_date):
 
     writer.writerow([
         '利用者名', '日付', '勤務種別', 
-        '送迎(朝)', '送迎場所(朝)', '送迎スタッフ(朝)', '送迎時間(朝)', '送迎車(朝)', 
-        '送迎(帰り)', '送迎場所(帰り)', '送迎スタッフ(帰り)', '送迎時間(帰り)', '送迎車(帰り)', 
+        '送迎(朝)', '送迎場所(朝)', '送迎スタッフ(朝)', '送迎時間(朝)', 
+        '送迎(帰り)', '送迎場所(帰り)', '送迎スタッフ(帰り)', '送迎時間(帰り)',
         '昼食', 
         '勤務1(開始時間)','勤務1(終了時間)','勤務1(場所)'
         '勤務2(開始時間)','勤務2(終了時間)','勤務2(場所)'
         '勤務3(開始時間)','勤務3(終了時間)','勤務3(場所)'
-        '勤務4(開始時間)','勤務4(終了時間)','勤務4(場所)'
     ])
 
     for record in queryset:
         writer.writerow([
-            record.customer_name,
+            record.customer.name,
             record.work_date,
             record.get_work_status_display(), 
             record.get_morning_transport_display(), 
             record.pickup_place,
             record.pickup_staff.name if record.pickup_staff else '',
             record.pickup_time.strftime('%H:%M') if record.pickup_time else '',
-            record.pickup_car.name if record.pickup_car else '',
             record.get_return_transport_display(),
             record.dropoff_place,
             record.dropoff_staff.name if record.dropoff_staff else '',  
             record.dropoff_time.strftime('%H:%M') if record.dropoff_time else '',
-            record.dropoff_car.name if record.dropoff_car else '',
-            record.get_lunch_display(),
             record.work1_start_time.strftime('%H:%M') if record.work1_start_time else '',
             record.work1_end_time.strftime('%H:%M') if record.work1_end_time else '',
             record.work1_place,
@@ -1120,16 +1465,13 @@ def exportCustomerWorkData(start_date, end_date):
             record.work3_start_time.strftime('%H:%M') if record.work3_start_time else '',
             record.work3_end_time.strftime('%H:%M') if record.work3_end_time else '',
             record.work3_place,
-            record.work4_start_time.strftime('%H:%M') if record.work4_start_time else '',
-            record.work4_end_time.strftime('%H:%M') if record.work4_end_time else '',
-            record.work4_place,
         ])
 
     return response
 
 
 def exportStaffWorkData(start_date, end_date):
-    queryset = StaffWorkModel.objects.filter(work_date__range=[start_date, end_date]).order_by('staff_id', 'work_date')
+    queryset = StaffRecordModel.objects.filter(work_date__range=[start_date, end_date]).order_by('staff_id', 'work_date')
 
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="staff_work_data.csv"'
@@ -1140,19 +1482,16 @@ def exportStaffWorkData(start_date, end_date):
 
     writer.writerow([
         'スタッフ名', '日付', '勤務種別',  
-        '昼食', 
         '勤務1(開始時間)','勤務1(終了時間)','勤務1(場所)'
         '勤務2(開始時間)','勤務2(終了時間)','勤務2(場所)'
         '勤務3(開始時間)','勤務3(終了時間)','勤務3(場所)'
-        '勤務4(開始時間)','勤務4(終了時間)','勤務4(場所)'
     ])
 
     for record in queryset:
         writer.writerow([
-            record.staff_name,
+            record.staff.name,
             record.work_date,
-            record.get_work_status_display(), 
-            record.get_lunch_display(),
+            record.get_work_status_text(), 
             record.work1_start_time.strftime('%H:%M') if record.work1_start_time else '',
             record.work1_end_time.strftime('%H:%M') if record.work1_end_time else '',
             record.work1_place,
@@ -1162,9 +1501,6 @@ def exportStaffWorkData(start_date, end_date):
             record.work3_start_time.strftime('%H:%M') if record.work3_start_time else '',
             record.work3_end_time.strftime('%H:%M') if record.work3_end_time else '',
             record.work3_place,
-            record.work4_start_time.strftime('%H:%M') if record.work4_start_time else '',
-            record.work4_end_time.strftime('%H:%M') if record.work4_end_time else '',
-            record.work4_place,
         ])
 
     return response
@@ -1183,3 +1519,338 @@ def password_change(request):
 
 def history(request):
     return render(request, 'app/history.html')
+
+MOVE_UP_FUNCS = {
+    'staff': lambda pk: _move_order_up(StaffModel, pk),
+    'customer': lambda pk: _move_order_up(CustomerModel, pk),
+}
+
+MOVE_DOWN_FUNCS = {
+    'staff': lambda pk: _move_order_down(StaffModel, pk),
+    'customer': lambda pk: _move_order_down(CustomerModel, pk),
+}
+
+# def _create_work_sessions_from_pattern2(staff_record):
+#     patterns = StaffSessionPatternModel.objects.filter(
+#         staff=staff_record.staff,
+#         weekday=_get_day(staff_record.work_date)
+#     )
+
+#     if not patterns.exists():
+#         # パターンがない場合は何もしない
+#         return
+
+#     with transaction.atomic():
+#         for ptn in patterns:
+#             StaffSessionRecordModel.objects.update_or_create(
+#                 record=staff_record,
+#                 session_no=ptn.session_no,
+#                 defaults={
+#                     'place': ptn.place,
+#                     'start_time': ptn.start_time,
+#                     'end_time': ptn.end_time
+#                 }
+#             )
+
+# def create_customer_work_by_pattern(customer_id, work_date, work_status=None):
+ 
+#     customer = get_object_or_404(CustomerModel, pk=customer_id)
+
+#     with transaction.atomic():
+
+#         rcd, created = CustomerRecordModel.objects.update_or_create(
+#             customer=customer,
+#             work_date=work_date,
+#             defaults={
+#                 'work_status': _resolve_work_status(customer, work_date),
+#             }
+#         )
+
+#         # 通所の場合のみ
+#         if rcd.work_status == CustomerWorkStatusEnum.OFFICE:
+#             # 勤務セッションを作成
+#             _create_work_sessions_from_pattern_common(
+#                 record=rcd,
+#                 owner_field='customer',
+#                 pattern_model=CustomerSessionPatternModel,
+#                 session_record_model=CustomerSessionRecordModel
+#             )
+
+#             # 送迎を作成
+#             _create_transports_from_pattern(
+#                 rcd,
+#                 TransportTypeEnum.MORNING
+#                 )
+#             _create_transports_from_pattern(
+#                 rcd,
+#                 TransportTypeEnum.RETURN
+#                 )
+
+#     return rcd
+# def _create_work_sessions_from_pattern(customer_record):
+#     patterns = CustomerSessionPatternModel.objects.filter(
+#         customer=customer_record.customer,
+#         weekday=_get_day(customer_record.work_date)
+#     )
+
+#     if not patterns.exists():
+#         # パターンがない場合は何もしない
+#         return
+
+#     with transaction.atomic():
+#         for ptn in patterns:
+#             CustomerSessionRecordModel.objects.update_or_create(
+#                 record=customer_record,
+#                 session_no=ptn.session_no,
+#                 defaults={
+#                     'place': ptn.place,
+#                     'start_time': ptn.start_time,
+#                     'end_time': ptn.end_time
+#                 }
+#             )
+
+# def create_info_by_staff(work_date):
+
+#     staffs = StaffModel.objects.all().order_by('order')
+#     customer_records = CustomerRecordModel.objects.filter(work_date=work_date).order_by('customer__order')
+    
+#     info_by_staff = []
+
+#     for staff in staffs:
+#         staff_work = StaffRecordModel.objects.filter(staff_id=staff.pk, work_date=work_date).first()
+            
+#         if not staff_work:
+#             staff_work = StaffRecordModel(staff=staff, work_date=work_date)
+#             staff_work.staff_name = staff.name
+
+#         places_and_times = []
+#         pickup_list = []
+#         dropoff_list = []
+
+#         if staff_work.work_status == StaffWorkStatusEnum.ON.value:
+
+#             # 勤務地&勤務時間のリスト
+#             for i in range(1,5):
+#                 place = getattr(staff_work, f'work{i}_place', None)
+#                 start_time = getattr(staff_work, f'work{i}_start_time', None)
+#                 end_time = getattr(staff_work, f'work{i}_end_time', None)
+#                 if place:
+#                     time = f"{start_time.strftime('%H:%M')}～{end_time.strftime('%H:%M')}" if start_time and end_time else ""
+#                     places_and_times.append({
+#                         'place': place.name,
+#                         'time': time
+#                     })
+
+#             # 朝の送迎リスト
+#             pickup_customers = [customer_record for customer_record in customer_records if customer_record.pickup_staff == staff_work.staff]
+            
+#             for customer in pickup_customers:
+#                 place_info = f"{customer.pickup_place}" if customer.pickup_place else ""
+#                 time_info = f"{customer.pickup_time.strftime('%H:%M')}" if customer.pickup_time else ""
+#                 car_info = f"{customer.pickup_car}" if customer.pickup_car else ""
+
+#                 pickup_list.append({
+#                     'name':customer.customer.name,
+#                     'place': place_info,
+#                     'time': time_info,
+#                     'car': car_info,
+#                 })
+                        
+#             # 帰りの送迎リスト
+#             dropoff_customers = [customer_record for customer_record in customer_records if customer_record.dropoff_staff == staff_work.staff]
+            
+#             for customer in dropoff_customers:
+#                 place_info = f"{customer.dropoff_place}" if customer.dropoff_place else ""
+#                 time_info = f"{customer.dropoff_time.strftime('%H:%M')}" if customer.dropoff_time else ""
+#                 car_info = f"{customer.dropoff_car}" if customer.dropoff_car else ""
+
+#                 dropoff_list.append({
+#                     'name':customer.customer.name,
+#                     'place': place_info,
+#                     'time': time_info,
+#                     'car': car_info,
+#                 })
+
+        
+#         info_by_staff.append({
+#             'id':staff_work.staff.pk,
+#             'name':staff_work.staff_name,
+#             'status':staff_work.get_work_status_text(),
+#             'places_and_times':places_and_times,
+#             'pickup_list':pickup_list,
+#             'dropoff_list':dropoff_list,
+#         })
+            
+#     return info_by_staff
+
+# def config_work(request, work_date):
+
+#     work_date_obj = datetime.strptime(work_date, '%Y-%m-%d').date()
+#     calendar_form = CalendarForm(initial_date=work_date_obj)
+
+#     staff_works = StaffRecordModel.objects.filter(work_date=work_date).order_by('staff__order')
+
+#     staff_list = []
+
+#     for staff_work in staff_works:
+#         staff_list.append({
+#             'id':staff_work.staff.pk,
+#             'name': staff_work.staff.name,
+#             'work_status': staff_work.get_work_status_display(),
+#             'places': [
+#                 getattr(staff_work, f'work{i}_place') for i in range(1, WORK_SESSION_COUNT + 1)
+#                 if getattr(staff_work, f'work{i}_place') 
+#             ],
+#         })
+
+#     customer_records = CustomerRecordModel.objects.filter(work_date=work_date).order_by('customer__order')
+
+#     customer_list = []
+
+#     for rcd in customer_records:
+#         customer_list.append({
+#             'id':rcd.customer.pk,
+#             'name': rcd.customer.name,
+#             'work_status': rcd.get_work_status_display(),
+#             'places': [
+#                 getattr(rcd, f'work{i}_place') for i in range(1, WORK_SESSION_COUNT + 1)
+#                 if getattr(rcd, f'work{i}_place') 
+#             ],
+#         })
+
+#     # StaffModelに存在し、StaffWorkModelに存在しないスタッフを取得
+#     staffs_with_work_entry = StaffRecordModel.objects.filter(work_date=work_date).values_list('staff', flat=True)
+#     staffs_without_work_entry = StaffModel.objects.exclude(id__in=staffs_with_work_entry).order_by('order')
+
+#     # CustomerModelに存在し、CustomerWorkModelに存在しないスタッフを取得
+#     customers_with_work_entry = CustomerRecordModel.objects.filter(work_date=work_date).values_list('customer', flat=True)
+#     customers_without_work_entry = CustomerModel.objects.exclude(id__in=customers_with_work_entry).order_by('order')
+    
+#     return render(request,'app/config_work.html',{
+#         'calendar_form':calendar_form,
+#         'work_date':work_date,
+#         'staff_list':staff_list,
+#         'customer_list':customer_list,
+#         'staffs_without_work_entry':staffs_without_work_entry,
+#         'customers_without_work_entry':customers_without_work_entry,
+#         })
+
+# def _resolve_work_status(customer, work_date):
+
+#     pattern = CustomerWorkStatusPatternModel.objects.filter(
+#         customer = customer,
+#         weekday = _get_day(work_date)
+#     ).first()
+
+#     if pattern:
+#         return pattern.work_status
+
+#     return CustomerWorkStatusEnum.OFF
+
+# def _resolve_work_status2(staff, work_date):
+#     pattern = StaffWorkStatusPatternModel.objects.filter(
+#         staff = staff,
+#         weekday = _get_day(work_date)
+#     ).first()
+
+#     if pattern:
+#         return pattern.work_status
+
+#     return StaffWorkStatusEnum.OFF
+
+# def _create_customer_record_from_pattern(customer, work_date):
+
+#     with transaction.atomic():
+#         work_status = _resolve_work_status_common(
+#             owner=customer,
+#             work_date=work_date,
+#             pattern_model=CustomerWorkStatusPatternModel,
+#             owner_field='customer',
+#             off_value=CustomerWorkStatusEnum.OFF,
+#         )
+#         rcd, created = CustomerRecordModel.objects.update_or_create(
+#             customer=customer,
+#             work_date=work_date,
+#             defaults={
+#                 'work_status': work_status,
+#             }
+#         )    
+
+#         # 勤務セッションを作成
+#         _create_work_sessions_from_pattern_common(
+#             record=rcd,
+#             owner_field='customer',
+#             pattern_model=CustomerSessionPatternModel,
+#             session_record_model=CustomerSessionRecordModel
+#         )
+
+#         # 送迎を作成
+#         _create_transports_from_pattern(rcd, TransportTypeEnum.MORNING)
+#         _create_transports_from_pattern(rcd, TransportTypeEnum.RETURN) 
+
+# def _create_staff_record_from_pattern(staff, work_date):
+#     with transaction.atomic():
+#         work_status = _resolve_work_status_common(
+#             owner=staff,
+#             work_date=work_date,
+#             pattern_model=StaffWorkStatusPatternModel,
+#             owner_field='staff',
+#             off_value=StaffWorkStatusEnum.OFF,
+#         )
+#         rcd, created = StaffRecordModel.objects.update_or_create(
+#             staff=staff,
+#             work_date=work_date,
+#             defaults={
+#                 'work_status': work_status,
+#             }
+#         )    
+
+#         # 勤務セッションを作成
+#         _create_work_sessions_from_pattern_common(
+#             record=rcd,
+#             owner_field='staff',
+#             pattern_model=StaffSessionPatternModel,
+#             session_record_model=StaffSessionRecordModel,
+#         )
+
+# def create_staff_work_by_pattern(staff_id, work_date, work_status=None):
+ 
+#     staff = get_object_or_404(StaffModel, pk=staff_id)
+#     staff_work = StaffRecordModel(staff=staff, work_date=work_date)
+
+#     if work_status == StaffWorkStatusEnum.ON:
+#         staff_work.work_status = work_status
+#     else:
+#         # 曜日ごとのステータスを設定
+#         weekday_number = datetime.strptime(work_date, "%Y-%m-%d").date().weekday()
+#         if weekday_number == 0:
+#             staff_work.work_status = staff.work_status_mon
+#         elif weekday_number == 1:
+#             staff_work.work_status = staff.work_status_tue
+#         elif weekday_number == 2:
+#             staff_work.work_status = staff.work_status_wed        
+#         elif weekday_number == 3:
+#             staff_work.work_status = staff.work_status_thu
+#         elif weekday_number == 4:
+#             staff_work.work_status = staff.work_status_fri        
+#         elif weekday_number == 5:
+#             staff_work.work_status = staff.work_status_sat   
+#         elif weekday_number == 6:
+#             staff_work.work_status = staff.work_status_sun
+
+#     # ステータスが「OFFICE」の場合に詳細を設定
+#     if staff_work.work_status == StaffWorkStatusEnum.ON:
+#         staff_work.work1_start_time = staff.work1_start_time
+#         staff_work.work1_end_time = staff.work1_end_time
+#         staff_work.work1_place = staff.work1_place
+#         staff_work.work2_start_time = staff.work2_start_time
+#         staff_work.work2_end_time = staff.work2_end_time
+#         staff_work.work2_place = staff.work2_place
+#         staff_work.work3_start_time = staff.work3_start_time
+#         staff_work.work3_end_time = staff.work3_end_time
+#         staff_work.work3_place = staff.work3_place
+#         staff_work.work4_start_time = staff.work4_start_time
+#         staff_work.work4_end_time = staff.work4_end_time
+#         staff_work.work4_place = staff.work4_place
+
+#     return staff_work

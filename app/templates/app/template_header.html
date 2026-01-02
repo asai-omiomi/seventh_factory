@@ -1,6 +1,6 @@
-<header> 
+<header>
   <nav class="navbar navbar-expand-md fixed-top" style="background-color: #329721;">
-    <div class="container-fluid">
+    <div class="container">
       <a href="{% url 'info_today' %}" class="navbar-brand" style="color: white;">SEVENTH FACTORY</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar"
         aria-controls="navbar" aria-expanded="false" aria-label="ナビゲーションの切替">
@@ -13,13 +13,13 @@
           </li>
           {% if request.user.is_superuser %}
           <li class="nav-item">
-            <a class="nav-link nav-link-custom" href="{% url 'customer' %}">利用者情報</a>
+            <a class="nav-link nav-link-custom" href="{% url 'customer_list' %}">利用者情報</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link nav-link-custom" href="{% url 'staff' %}">スタッフ情報</a>
+            <a class="nav-link nav-link-custom" href="{% url 'staff_list' %}">スタッフ情報</a>
           </li>
-          <!-- <li class="nav-item"> -->
-            <a class="nav-link nav-link-custom" href="{% url 'export' %}">データ出力</a>
+          <li class="nav-item">
+          <a class="nav-link nav-link-custom" href="{% url 'export' %}">データ出力</a>
           </li>
           <li class="nav-item">
             <a class="nav-link nav-link-custom" href="{% url 'history' %}">操作履歴</a>
@@ -29,8 +29,9 @@
         </ul>
         <ul class="navbar-nav mr-auto mb-2 mb-md-0">
           <li class="nav-item dropdown">
-            <a href="#" class="nav-link nav-link-custom dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">{{request.user.username}}</a>    
-            
+            <a href="#" class="nav-link nav-link-custom dropdown-toggle" role="button" data-bs-toggle="dropdown"
+              aria-haspopup="true" aria-expanded="false">{{request.user.username}}</a>
+
             <ul class="dropdown-menu dropdown-menu-end">
               <li class="nav-item">
                 <a class="dropdown-item" href="{% url 'password_change' %}">パスワード変更</a>
@@ -40,7 +41,7 @@
                   class="dropdown-item">
                   ログアウト
                 </a>
-      
+
                 <form id="logout-form" action="{% url 'logout' %}" method="POST" style="display: none;">
                   {% csrf_token %}
                 </form>

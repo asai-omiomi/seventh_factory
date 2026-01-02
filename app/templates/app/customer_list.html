@@ -1,0 +1,11 @@
+<!-- customer_list.html -->
+
+{% extends 'app/template_base.html' %}
+
+{% block title %}利用者情報{% endblock %}
+
+{% block contents %}
+
+{% include 'app/partials/member_list.html' with title='利用者情報' form_action_name='customer_list_dispatch' members=customers %}
+
+{% endblock %}

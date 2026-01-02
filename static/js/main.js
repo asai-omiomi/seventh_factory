@@ -1,16 +1,17 @@
-function toggleFieldsByName(fieldName, show) {
+function toggleFieldsByName(selector, show, parent=document) {
 
-    const targetFields = document.querySelectorAll(fieldName);
-    toggleFields(targetFields, show);
+    const targetFields = parent.querySelectorAll(selector);
+    if (!targetFields) return;
+    _toggleFields(targetFields, show);
 }
 
-function toggleFields(targetFields, show) {
+function _toggleFields(targetFields, show) {
     targetFields.forEach(field => {
-        toggleField(field, show);
+        _toggleField(field, show);
     });
 }
 
-function toggleField(field, show) {
+function _toggleField(field, show) {
     if (show) {
         if (field.tagName.toLowerCase() === 'label') {
             field.style.display = 'inline-block';
@@ -32,132 +33,53 @@ function toggleField(field, show) {
     }
 }
 
-function toggleFieldsByWorkStatus() {
-    const workStatusField = document.getElementById('id_work_status');
-    const show = workStatusField.value == '0';
+function _toggleFieldsByWorkStatus() {
+    const elements = document.querySelectorAll('.work-status');
 
-    toggleFieldsByName('.work-fields', show);
+    elements.forEach(el => {
+        const show = el.value === '1'; // '1' と文字列比較
+        // 親要素の .work-fields 内だけを切り替え
+        const parent = el.closest('.work-fields');
+        if (parent) {
+            toggleFieldsByName('.toggle-fields', show, parent);
+        }
+    });
 }
 
-function setupToggleWorkStatusEventListener() {
+function setupToggleWorkStatusControl() {
     document.addEventListener('DOMContentLoaded', () => {
-        toggleFieldsByWorkStatus();
 
-        document.getElementById('id_work_status').addEventListener('change', toggleFieldsByWorkStatus);
-    });
-}
+        _toggleFieldsByWorkStatus();
 
-
-// function toggleFieldsByLunch() {
-//     const lunch = document.getElementById('id_lunch');
-//     const show = (lunch.value == '0' || lunch.value == '1');
-
-//     toggleFieldsByName('.eat-lunch-at', show);
-// }
-
-function toggleFieldsByLunch() {
-    const lunch = document.getElementById('id_lunch');
-    const show = (lunch.value == '0' || lunch.value == '1');
-    const fields = document.querySelectorAll('.eat-lunch-at');
-
-    // 前の状態が非表示で、今表示する場合のみ既定の選択を行う
-    fields.forEach(field => {
-        const wasHidden = field.style.display === 'none';
-
-        toggleField(field, show);
-
-        if (show && wasHidden) {
-            // 勤務1のラジオボタン
-            const radio = field.querySelector('input[type="radio"][value="1"]');
-            if (radio) {
-                radio.checked = true;
-            }
-        }
-    });
-}
-
-// ボタンの表示/非表示を管理
-function updateButtons() {
-    const workSections = Array.from(document.querySelectorAll('.work-section'));
-    const lastVisibleSectionReverseIndex = workSections.slice().reverse().findIndex(s => s.style.display !== 'none');
-    const lastVisibleSectionIndex = workSections.length - 1 - lastVisibleSectionReverseIndex;
-
-    // 追加ボタン
-    const addButton = document.getElementById('add-button');
-    if (lastVisibleSectionIndex == workSections.length - 1) {
-        addButton.disabled = true;
-    } else {
-        addButton.disabled = false;
-    }
-
-    // 削除ボタン
-    workSections.forEach((section, index) => {
-        const removeButton = section.querySelector('.remove-button');
-
-        if (index == lastVisibleSectionIndex) {
-            if (index != 0) {
-                removeButton.style.display = 'inline-block';
-            } else {
-                removeButton.style.display = 'none';
-            }
-        } else {
-            removeButton.style.display = 'none';
-        }
-    });
-}
-
-function addEventListnerToWorkSectionsButtons() {
-
-    const workSections = Array.from(document.querySelectorAll('.work-section'));
-
-    const addButton = document.getElementById('add-button');
-    addButton.addEventListener('click', (event) => {
-        const nextSection = workSections.find(s => s.style.display === 'none');
-        if (nextSection) {
-            toggleField(nextSection, true);// 次の勤務セクションを表示
-            updateButtons();
-        }
-    });
-
-    workSections.forEach(section => {
-        const removeButton = section.querySelector('.remove-button');
-        removeButton.addEventListener('click', (event) => {
-            toggleField(section, false);
-            updateButtons();
+        const elements = document.querySelectorAll('.work-status');
+        elements.forEach(el => {
+            el.addEventListener('change', _toggleFieldsByWorkStatus);
         });
     });
 }
 
-function setupToggleLunchEventListener() {
+function _toggleTransferDetails(type, className) {
+    const select = document.querySelector(`.${type}`);
+    if (!select) return;
+
+    const show = select.value == TRANSFER_VALUE;
+    toggleFieldsByName(`.${className}`, show);
+}
+
+// 初期化とイベント設定
+function setupTransportControl() {
     document.addEventListener('DOMContentLoaded', () => {
-        toggleFieldsByLunch();
-        updateButtons();
+        ['morning', 'return'].forEach(type => {
+            const className = type === 'morning' ? 'morning_transfer_details' : 'return_transfer_details';
+            const select = document.querySelector(`.${type}`);
+            if (!select) return;
 
-        document.getElementById('id_lunch').addEventListener('change', toggleFieldsByLunch);
-        addEventListnerToWorkSectionsButtons();
+            select.addEventListener('change', () => _toggleTransferDetails(type, className));
+
+            // 初期表示の設定
+            _toggleTransferDetails(type, className);
+        });
     });
-}
-
-function toggleFieldsByMorningTransport() {
-    const morningTransportField = document.getElementById('id_morning_transport_means');
-    const show = morningTransportField.value == '0';
-
-    toggleFieldsByName('.pickup-fields', show);
-}
-
-function toggleFieldsByReturnTransport() {
-    const morningTransportField = document.getElementById('id_return_transport_means');
-    const show = morningTransportField.value == '0';
-
-    toggleFieldsByName('.dropoff-fields', show);
-}
-
-function setupToggleTransportEventListener() {
-    toggleFieldsByMorningTransport();
-    toggleFieldsByReturnTransport();
-    
-    document.getElementById('id_morning_transport_means').addEventListener('change', toggleFieldsByMorningTransport);
-    document.getElementById('id_return_transport_means').addEventListener('change', toggleFieldsByReturnTransport);    
 }
 
 // バリデーション
@@ -171,7 +93,7 @@ function validateForm(event) {
         // 勤務ステータスがON or OFFICE 以外の場合（欠勤、在宅など）はチェック不要
     } else{
         const morningTransportMeans = document.getElementById('id_morning_transport_means');
-        if (morningTransportMeans && morningTransportMeans.value === '0'){
+        if (morningTransportMeans && morningTransportMeans.value === TRANSFER_VALUE){
             const pickupStaff = document.getElementById('id_pickup_staff');
             if(!pickupStaff.value) {
                 valid = false;
@@ -180,7 +102,7 @@ function validateForm(event) {
         }
 
         const returnTransportMeans = document.getElementById('id_return_transport_means');
-        if (returnTransportMeans && returnTransportMeans.value === '0'){
+        if (returnTransportMeans && returnTransportMeans.value === TRANSFER_VALUE){
             const dropoffStaff = document.getElementById('id_dropoff_staff');
             if(!dropoffStaff.value) {
                 valid = false;
@@ -189,27 +111,16 @@ function validateForm(event) {
         }
 
         // 勤務場所のチェック
-        const workSections = document.querySelectorAll('.work-section');
-        workSections.forEach(section => {
-            if (section.style.display !== 'none') {
-                const placeField = section.querySelector('select'); // 勤務場所のフィールド
-                if (!placeField || !placeField.value) {
-                    valid = false;
-                    errorMessage = '勤務場所の入力は必須です。';
-                }
-            }
-        });
-
-        // 昼食の設定チェック
-        const lunchField = document.getElementById('id_lunch');
-        const lunchValue = lunchField.value;
-        if (lunchValue === '0' || lunchValue === '1') { // 有り(注文)または有り(持参)
-            const selectedLunchRadio = document.querySelector('.eat-lunch-at input[type="radio"]:checked');
-            if (!selectedLunchRadio) {
-                valid = false;
-                errorMessage = '昼食を食べる場所を選択してください。';
-            }
-        }
+        // const workSections = document.querySelectorAll('.work-section');
+        // workSections.forEach(section => {
+        //     if (section.style.display !== 'none') {
+        //         const placeField = section.querySelector('select'); // 勤務場所のフィールド
+        //         if (!placeField || !placeField.value) {
+        //             valid = false;
+        //             errorMessage = '勤務場所の入力は必須です。';
+        //         }
+        //     }
+        // });
     }
 
     if (!valid) {

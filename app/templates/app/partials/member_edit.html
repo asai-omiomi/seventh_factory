@@ -1,0 +1,74 @@
+<style>
+    /* タブコンテンツ */
+    .tab-content {
+        padding: 1rem;
+        border: solid 1.5px blue;
+        border-radius: 5px;
+        margin-bottom: 20px
+    }
+</style>
+
+<div class="wrapper">
+    <h1 class="mb-4">{{ title }}</h1>
+
+    <form id="form" action="{{ form_action }}" method="post">
+        {% csrf_token %}
+
+        <div class="mt-2 mb-4">
+            <label for="{{ member_form.name.id_for_label }}">名前：</label>
+            {{ member_form.name }}
+        </div>
+
+        <ul class="nav nav-tabs mt-5" id="tab" role="tablist">
+            {% for day in day_patterns %}
+                <li class="nav-item" role="presentation">
+                    <button
+                        class="nav-link {% if forloop.first %}active{% endif %}"
+                        id="day-{{ day.value }}-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#day-{{ day.value }}"
+                        type="button"
+                        role="tab">
+                        {{ day.label }}
+                    </button>
+                </li>
+            {% endfor %}
+        </ul>
+
+        <div class="tab-content" id="patternTabContent">
+            {% for day in day_patterns %}
+                <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="day-{{ day.value }}" role="tabpanel">
+                    <div class="work-fields mt-3 mb-3">
+                        <div>
+                            勤務形態
+                            {{ day.work_status_form.work_status }}
+                        </div>
+
+                        <hr class="toggle-fields my-4">
+
+                        {% if transport %}
+                            {% include "app/partials/customer_session_transport_block.html" with session_forms=day.session_forms morning_transport_form=day.morning_transport_form return_transport_form=day.return_transport_form label="勤務セッションと送迎" %}
+                        {% else %}
+                            {% include "app/partials/session_block.html" with forms=day.session_forms label="勤務セッション" %}
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <button class="btn-sm" type="submit" name="action" value="save">保存</button>
+        <button class="btn-sm" type="submit" name="action" value="cancel" formnovalidate>キャンセル</button>
+    </form>
+</div>
+
+{% if transport %}
+<script>
+    setupTransportControl();
+</script>
+{% endif %}
+
+<script>
+    setupToggleWorkStatusControl();
+    setupFormValidation();
+</script>
+

@@ -1,3 +1,7 @@
+h1{
+  font-size: 2rem;
+}
+
 input[type="button"],
 button,
 select {
@@ -48,26 +52,43 @@ select {
     color: white !important;
 }
 
-.work-fields{
-    margin: 15px 0;
-}
-
-.pickup-fields, .dropoff-fields{
-    margin-left: 20px;
-}
-
 .width-content-fit{
     width: 0px;
     white-space: nowrap;
 }
 
-.lunch_box_img{
-  height: 22px;
-  transform: translateY(-1.5px);
-}
-
-.transport_labels{
+.transfer_label{
   width: 90px;
   text-align: right;
   margin-top: 8px;
+}
+
+/* タブ全体のスタイル */
+#tab .nav-link {
+    background-color: transparent;   /* 背景なし */
+    border: 1px solid #007bff;      /* 青枠線 */
+    border-bottom: none;             /* 下線は消す */
+    color: #007bff;
+    margin-right: -1px;              /* タブを隣接させる */
+    border-radius: .25rem .25rem 0 0; /* 角丸上部のみ */
+}
+
+/* 非アクティブタブのホバー */
+#tab .nav-link:hover {
+    background-color: #e7f1ff;       /* 軽く色を付ける */
+}
+
+/* アクティブタブ */
+#tab .nav-link.active {
+    background-color: #007bff;       /* アクティブは青背景 */
+    color: white;                     /* 文字色白 */
+    border-color: #007bff;            /* 枠線も青 */
+    border-bottom: 1px solid white;   /* 下線消す */
+    z-index: 1;                        /* アクティブを前面に */
+}
+
+.wrapper{
+  width: 85vw;
+  max-width: 800px;
+  margin: auto;
 }
