@@ -35,6 +35,11 @@ input[type="text"], input[type="password"]{
   padding: 4px;
 }
 
+.radio-large input[type="radio"] {
+    transform: scale(1.2);  /* サイズ拡大 */
+    cursor: pointer;
+}
+
 .nav-link-custom{
     color: white !important;
 }
