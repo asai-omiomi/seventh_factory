@@ -25,18 +25,6 @@ def info(request, work_date):
     # POST：勤務状態の更新
     # =========================
     if request.method == "POST" and "edit_current_status" in request.POST:
-        customer_id = request.POST.get("edit_current_status")
-        work_date = request.POST.get("work_date")
-        new_status = request.POST.get("current_status")
-
-        customer_record = get_object_or_404(
-            CustomerRecordModel,
-            customer__pk=customer_id,
-            work_date=work_date
-        )
-
-        customer_record.current_status = int(new_status)
-        customer_record.save()
 
     # =========================
     # GET：通常の表示
@@ -54,6 +42,8 @@ def info(request, work_date):
         'calendar_form':calendar_form,
         'info': info,
         'transport_table_rows': transport_table_rows, 
+        'current_status_staff_choices': CurrentStatusStaffEnum.choices,
+        'current_status_customer_choices': CurrentStatusCustomerEnum.choices,
         })
 
 def _build_info(work_date):
