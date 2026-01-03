@@ -40,29 +40,30 @@
             {% for day in day_patterns %}
                 <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="day-{{ day.value }}" role="tabpanel">
                     <div class="work-fields mt-3 mb-3">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                勤務形態
-                                {{ day.work_status_form.work_status }}
-                            </div>
-                            <div class="copy-controls">                      
-                                <select id="copy-weekday-{{ day.value }}" class="form-select copy-weekday-select d-inline-block w-auto ms-2" style="border: 1px solid #333;">
-                                    {% for value, label in weekday_choices %}
-                                        <option value="{{ value }}"
-                                            {% if value == 1 %}selected{% endif %}
-                                        >
-                                            {{ label }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
+                        <div class="copy-controls">                      
+                            <select id="copy-weekday-{{ day.value }}" class="form-select copy-weekday-select d-inline-block w-auto ms-2" style="border: 1px solid #333;">
+                                {% for value, label in weekday_choices %}
+                                    <option value="{{ value }}"
+                                        {% if value == 1 %}selected{% endif %}
+                                    >
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
 
-                                <span class="ms-2">曜日のデータをコピーする</span>
+                            <span class="ms-2">曜日のデータをコピーする</span>
 
-                                <button type="button" class="btn-sm" data-target-day="{{ day.value }}">
-                                    実行
-                                </button>                           
-                            </div>
+                            <button type="button" class="btn-sm" data-target-day="{{ day.value }}">
+                                実行
+                            </button>                           
                         </div>
+
+                        <hr class="my-4">
+                        
+                        <div>
+                            勤務形態：
+                            {{ day.work_status_form.work_status }}
+                        </div>                
 
                         <hr class="toggle-fields my-4">
 

@@ -29,6 +29,12 @@ select {
   padding: 4px 32px 4px 8px !important;
 }
 
+input[type="text"]{
+  border: 1px solid black;
+  border-radius: 4px;
+  padding: 4px;
+}
+
 .nav-tabs>.nav-item>.nav-link {
     padding: 5px !important;
 }
@@ -43,7 +49,7 @@ select {
 }
 
 .transfer_label{
-  width: 130px;
+  width: 110px;
   text-align: right;
   margin-top: 8px;
 }
