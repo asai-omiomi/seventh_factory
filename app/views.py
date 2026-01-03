@@ -70,7 +70,7 @@ def _build_info(work_date):
     # 勤務地別を追加
     _append_place_info(staff_records, customer_records, work_date, info)
     # 勤務地なしを追加
-    # _append_no_place_info(staff_records, customer_records, work_date, info)
+    _append_no_place_info(staff_records, customer_records, info)
     # 在宅を追加
     _append_home_info(customer_records, info)
     # 休みを追加
@@ -93,6 +93,7 @@ def _append_place_info(staff_records, customer_records, work_date, info):
             place=place,
             get_member=lambda rcd: rcd.customer,
             session_model=CustomerSessionRecordModel,
+            extra_lines_builder=_build_customer_extra_lines,
         ) 
         staff_customer_list = _build_staff_customer_list(staff_list, customer_list)
         remarks = _build_remarks(place, work_date)
@@ -105,15 +106,79 @@ def _append_place_info(staff_records, customer_records, work_date, info):
             'remarks': remarks,
         })  
 
-# def _append_no_place_info(staff_records, customer_records, work_date, info):
+def has_any_place_session(rcd, session_model):
+    """
+    1つでも place が設定されたセッションがあるか
+    """
+    return session_model.objects.filter(
+        record=rcd,
+        place__isnull=False,
+    ).exists()
 
-#     staff_list = _bulid_staff_list
-    
+def _build_member_list_without_place(
+    records,
+    *,
+    get_member,
+    session_model,
+    work_status,
+):
+    result = []
+
+    for rcd in records:
+        member = get_member(rcd)
+        if not member:
+            continue
+
+        # 出勤/通所だけれども場所が1つも設定されていない
+        if rcd.work_status == work_status:
+            if not has_any_place_session(rcd, session_model):
+                result.append({
+                    'id': member.id,
+                    'name': member.name,
+                    'display': member.name,
+                })
+
+    return result
+
+def _append_no_place_info(
+    staff_records,
+    customer_records,
+    info,
+):
+    staff_list = _build_member_list_without_place(
+        staff_records,
+        get_member=lambda rcd: rcd.staff,
+        session_model=StaffSessionRecordModel,
+        work_status=StaffWorkStatusEnum.ON,
+    )
+
+    customer_list = _build_member_list_without_place(
+        customer_records,
+        get_member=lambda rcd: rcd.customer,
+        session_model=CustomerSessionRecordModel,
+        work_status=CustomerWorkStatusEnum.OFFICE,
+    )
+
+    if not staff_list and not customer_list:
+        return  # 空なら追加しない
+
+    staff_customer_list = _build_staff_customer_list(
+        staff_list,
+        customer_list
+    )
+
+    info.append({
+        'place_id': -1,
+        'place_name': "場所未設定",
+        'color': "table-warning",
+        'staff_cusotmer_list': staff_customer_list,
+        'remarks': "",
+    })   
 
 def _append_home_info(customer_records, info):
     _append_status_info(
             info=info,
-            place_id=-1,
+            place_id=-2,
             place_name="在宅",
             color="table-success",
             customer_records=customer_records,
@@ -123,7 +188,7 @@ def _append_home_info(customer_records, info):
 def _append_off_info(staff_records, customer_records, info):
     _append_status_info(
         info=info,
-        place_id=-1,
+        place_id=-3,
         place_name="休み",
         color="table-danger",
         staff_records=staff_records,
