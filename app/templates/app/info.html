@@ -71,18 +71,21 @@
         <div>
             <h2>勤務データが存在しません</h2>
             {% if request.user.is_superuser %}
+            <hr class="my-4">
             <div class="mt-1">
-                利用者・スタッフの曜日別の登録データを元に勤務データを作成する(通常はこちら)
+                <p>利用者・スタッフの曜日別の<br>登録データを元に勤務データを作成する<br>(通常はこちら)</p>
                 <button class="btn-sm" id="id_create_records" type="submit" name="create_records" value="0">
                     実行
                 </button>
             </div>
+            <hr class="my-4">
             <div class="mt-1">
-                全員休みの勤務データを作成する(祝日・年末年始など)
+                <p>全員休みの勤務データを作成する<br>(祝日・年末年始など)</p>
                 <button class="btn-sm" id="id_create_records_off_day" type="submit" name="create_records_off_day" value="0">
                     実行
                 </button>
             </div>
+            <hr class="my-4">
 
             {% endif %}
         </div>
