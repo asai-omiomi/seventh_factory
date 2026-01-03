@@ -10,34 +10,26 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        // スクロール位置の復元
-        const scrollToElementId = sessionStorage.getItem("scrollToElement");
+
+        // スクロール位置の復元 
+        const scrollToElementId = sessionStorage.getItem("scrollToElement"); 
+        
         if (scrollToElementId) {
-            const targetElement = document.getElementById(scrollToElementId);
-            if (targetElement) {
-                targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
-            }
-            sessionStorage.removeItem("scrollToElement");  // 位置情報をクリア
+            const targetElement = document.getElementById(scrollToElementId); 
+            if (targetElement) { 
+                targetElement.scrollIntoView({ behavior: "smooth", block: "center" }); 
+            } 
+            
+            // 位置情報をクリア 
+            sessionStorage.removeItem("scrollToElement"); 
+            
         }
 
-        // 全体情報の作業内容の「編集」ボタンが押されたときの処理
-        document.querySelectorAll("button[name='place_remarks_edit']").forEach(button => {
+        // 編集ボタン全般に共通の処理
+        document.querySelectorAll("button[name$='_edit']").forEach(button => {
             button.addEventListener("click", function () {
-                sessionStorage.setItem("scrollToElement", this.id);  // ボタンのIDを保存
-            });
-        });
-
-        // 利用者の「編集」ボタンが押されたときの処理
-        document.querySelectorAll("button[name='customer_record_edit']").forEach(button => {
-            button.addEventListener("click", function () {
-                sessionStorage.setItem("scrollToElement", this.id);  // ボタンのIDを保存
-            });
-        });
-
-        // スタッフの「編集」ボタンが押されたときの処理
-        document.querySelectorAll("button[name='staff_record_edit']").forEach(button => {
-            button.addEventListener("click", function () {
-                sessionStorage.setItem("scrollToElement", this.id);  // ボタンのIDを保存
+                // ボタンのIDを sessionStorage に保存
+                sessionStorage.setItem("scrollToElement", this.id);
             });
         });
     });
@@ -101,94 +93,94 @@
                     </thead>
 
                     <tbody>
-                        {% for info in info %}
-                            {% if info.staff_cusotmer_list %}
-                                <!-- 場所名 -->
-                                <tr class="{{info.color}}">
-                                    <td colspan="2" class="fw-bold">
-                                        {{ info.place_name }}
-                                    </td>
-                                </tr>
-                                {% with info.staff_cusotmer_list|length as rowspan %}
-                                    {% for staff, customer in info.staff_cusotmer_list %}
-                                        {% if staff or customer %}
-                                        <tr>
-                                            <td>
-                                                {% if staff %}
-                                                <div>
-                                                    <div class="mt-1">{{ staff.display | linebreaksbr }}</div>
-                                                </div>  
-                                                
-                                                <div class="mt-1">
-                                                    <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
-                                                        {% csrf_token %}
-                                                        <div class="d-flex gap-1">
-                                                            {% if info.place_id > 0 %}
-                                                            <button type="button"
-                                                                class="btn btn-sm {{ staff.current_status_btn_class }}"
-                                                                data-bs-toggle="modal" data-bs-target="#statusModal-{{ staff.id }}">
-                                                                {{ staff.current_status_text }}
-                                                            </button>                 
-                                                            {% endif %}             
-                                                            <button id="edit-staff_btn-{{ staff.id }}" class="btn-sm text-nowrap"
-                                                                type="submit" name="staff_record_edit" value="{{ staff.id }}">
-                                                                編集
-                                                            </button>  
-                                                        </div>                                      
-                                                    </form>
-                                                </div>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                {% if customer %}
-                                                <div>
-                                                    <div>{{ customer.display | linebreaksbr }}</div>
-                                                </div>
-
-                                                <div class="mt-1">
-                                                    <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
-                                                        {% csrf_token %}
-                                                        <div class="d-flex gap-1 align-items-center">
-                                                            {% if info.place_id > 0 %}
-                                                            <button type="button"
-                                                                class="btn btn-sm {{ customer.current_status_btn_class }}"
-                                                                data-bs-toggle="modal" data-bs-target="#statusModal-{{ customer.id }}">
-                                                                {{ customer.current_status_text }}
-                                                            </button> 
-                                                            {% endif %}                                             
-                                                            <button id="edit-customer_btn-{{ customer.id }}" class="btn-sm text-nowrap"
-                                                                type="submit" name="customer_record_edit" value="{{ customer.id }}">
-                                                                編集
-                                                            </button>
-                                                        </div>
-                                                    </form>
-                                                </div>
-                                                {% endif %}
-                                            </td>
-                                        </tr>
-                                        {% endif %}
-                                    {% endfor %}
-                                    <!-- 備考を場所ごとの下に1行で表示 -->
-                                    {% if info.place_id > 0 %}
-                                        <tr>
-                                            <td colspan="2">
-                                                    <div class="mb-1">
-                                                        [備考]
-                                                        {{ info.remarks | linebreaksbr }}
-                                                    </div>
-                                                    <form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
-                                                        {% csrf_token %} 
-                                                        <button id="edit_place_remarks_btn-{{ info.place_id }}" class="btn-sm text-nowrap" type="submit" name="place_remarks_edit" value="{{ info.place_id }}"> 
-                                                            編集 
-                                                        </button>
-                                                    </form>
-                                                </div>
-                                            </td>
-                                        </tr>    
-                                    {% endif %}
-                                {% endwith %}
+                    {% for info in info %}
+                    {% if info.staff_cusotmer_list %}
+                    <!-- 場所名 -->
+                    <tr class="{{info.color}}">
+                        <td colspan="2" class="fw-bold">
+                            {{ info.place_name }}
+                        </td>
+                    </tr>
+                    {% with info.staff_cusotmer_list|length as rowspan %}
+                    {% for staff, customer in info.staff_cusotmer_list %}
+                    {% if staff or customer %}
+                    <tr>
+                        <td>
+                            {% if staff %}
+                            <div>
+                                <div class="mt-1">{{ staff.display | linebreaksbr }}</div>
+                            </div>  
+                            
+                            <div class="mt-1">
+                                <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
+                                    {% csrf_token %}
+                                    <div class="d-flex gap-1">
+                                        {% if info.place_id > 0 %}
+                                        <button type="button" id="staff_current_status_edit-{{ staff.id }}"
+                                            class="btn btn-sm {{ staff.current_status_btn_class }}" 
+                                            name="staff_current_status_edit" data-bs-toggle="modal" data-bs-target="#statusModal-{{ staff.id }}">
+                                            {{ staff.current_status_text }}
+                                        </button>                 
+                                        {% endif %}             
+                                        <button id="staff_record_edit_btn-{{ staff.id }}" class="btn-sm text-nowrap"
+                                            type="submit" name="staff_record_edit" value="{{ staff.id }}">
+                                            編集
+                                        </button>  
+                                    </div>                                      
+                                </form>
+                            </div>
                             {% endif %}
-                        {% endfor %}
+                        </td>
+                        <td>
+                            {% if customer %}
+                            <div>
+                                <div>{{ customer.display | linebreaksbr }}</div>
+                            </div>
+
+                            <div class="mt-1">
+                                <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
+                                    {% csrf_token %}
+                                    <div class="d-flex gap-1 align-items-center">
+                                        {% if info.place_id > 0 %}
+                                        <button type="button" id="customer_current_status_edit-{{ customer.id }}"
+                                            class="btn btn-sm {{ customer.current_status_btn_class }}" 
+                                            name="customer_current_status_edit" data-bs-toggle="modal" data-bs-target="#statusModal-{{ customer.id }}">
+                                            {{ customer.current_status_text }}
+                                        </button> 
+                                        {% endif %}                                             
+                                        <button id="customer_record_edit_btn-{{ customer.id }}" class="btn-sm text-nowrap"
+                                            type="submit" name="customer_record_edit" value="{{ customer.id }}">
+                                            編集
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                    <!-- 備考を場所ごとの下に1行で表示 -->
+                    {% if info.place_id > 0 %}
+                    <tr>
+                        <td colspan="2">
+                                <div class="mb-1">
+                                    [備考]
+                                    {{ info.remarks | linebreaksbr }}
+                                </div>
+                                <form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
+                                    {% csrf_token %} 
+                                    <button id="place_remarks_edit_btn-{{ info.place_id }}" class="scroll-target btn-sm text-nowrap" type="submit" name="place_remarks_edit" value="{{ info.place_id }}"> 
+                                        編集 
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>    
+                    {% endif %}
+                    {% endwith %}
+                    {% endif %}
+                    {% endfor %}
                     </tbody>
                 </table>
             </div>

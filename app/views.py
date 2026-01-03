@@ -1039,6 +1039,10 @@ def _save_transport_record(request, record, transport_type):
     return True
 
 def place_remarks_edit(request, place_id, work_date):
+
+    if request.POST.get('action') != 'save':
+        return redirect('info', work_date=work_date)
+
     place = PlaceModel.objects.get(pk=place_id)
 
     place_remarks, created = PlaceRemarksModel.objects.get_or_create(
