@@ -35,10 +35,6 @@ input[type="text"], input[type="password"]{
   padding: 4px;
 }
 
-.nav-tabs>.nav-item>.nav-link {
-    padding: 5px !important;
-}
-
 .nav-link-custom{
     color: white !important;
 }

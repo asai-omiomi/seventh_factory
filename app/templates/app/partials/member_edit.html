@@ -1,4 +1,8 @@
 <style>
+    .nav-tabs>.nav-item>.nav-link {
+        padding: 0.4rem 0.8rem !important;
+    }
+
     /* タブコンテンツ */
     .tab-content {
         padding: 1rem;
@@ -50,7 +54,7 @@
                                     </option>
                                 {% endfor %}
                             </select>
-                            <span class="ms-2">曜のデータをコピーする</span>
+                            <span class="ms-2">曜のデータをコピー</span>
                         
                             <button type="button" class="btn-sm mt-2" data-target-day="{{ day.value }}">
                                 実行
