@@ -1553,6 +1553,13 @@ def _save_transport_pattern(request, customer, day_value, transport_type):
 
     return True
 
+def sysad(request):
+    return render(request,'app/sysad.html', {
+
+        })
+
+
+
 def output(request):
 
     today = timezone.now().date()

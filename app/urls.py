@@ -32,10 +32,10 @@ urlpatterns = [
     path('customer/<int:customer_id>/<str:work_date>/edit', views.customer_record_edit, name='customer_record_edit'),
     path('customer/<int:customer_id>/<str:work_date>/save', views.customer_record_save, name='customer_record_save'),
 
-
-
     path('output/', views.output, name='output'),      
     path('output/execute', views.output_execute, name='output_execute'),  
+    path('sysad/', views.sysad, name='sysad'), 
+      
 
     path('password_change/', views.password_change, name='password_change'),  
     path('password_change/done/', auth_views.PasswordChangeDoneView.as_view(template_name='app/password_change_done.html'), name='password_change_done'),  
