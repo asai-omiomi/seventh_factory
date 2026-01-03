@@ -29,7 +29,7 @@ select {
   padding: 4px 32px 4px 8px !important;
 }
 
-input[type="text"]{
+input[type="text"], input[type="password"]{
   border: 1px solid black;
   border-radius: 4px;
   padding: 4px;
