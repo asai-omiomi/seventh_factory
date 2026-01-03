@@ -23,12 +23,20 @@ class TransportMeansEnum(models.IntegerChoices):
     MOTORCYCLE  = 6, "バイク"
     OTHERS      = 9, "その他"
 
-# class CurrentStatusEnum(models.IntegerChoices):
-#     BEFORE      = 0, "通所前"
-#     WORKING     = 1, "通所中"
-#     FINISHED    = 5, "退勤"
-#     HOME        = 8, "在宅"
-#     ABSENT      = 9, "休み"
+class CurrentStatusStaffEnum(models.IntegerChoices):
+    BEFORE      = 0, "出勤前"
+    WORKING     = 1, "勤務中"
+    FINISHED    = 5, "退勤"
+    MOVED       = 7, "移動済"
+    ABSENT      = 9, "休み"
+
+class CurrentStatusCustomerEnum(models.IntegerChoices):
+    BEFORE      = 0, "通所前"
+    WORKING     = 1, "勤務中"
+    FINISHED    = 5, "退勤"
+    MOVED       = 7, "移動済"
+    HOME        = 8, "在宅"
+    ABSENT      = 9, "休み"
 
 class TransportTypeEnum(models.IntegerChoices):
     MORNING = 1, '朝'
@@ -262,7 +270,7 @@ class TransportRecordModel(BaseTransport):
         unique_together = ('record', 'transport_type')
 
     def __str__(self):
-        return f'{self.work} - {self.get_transport_type_display()}'
+        return f'{self.record} - {self.get_transport_type_display()}'
 
 class BaseSession(models.Model):
     session_no = models.PositiveSmallIntegerField(null=False,default=1)
@@ -330,6 +338,11 @@ class StaffSessionRecordModel(BaseSession):
         related_name='staff_session_record'
     )
 
+    current_status = models.IntegerField(
+        choices=CurrentStatusStaffEnum.choices,
+        default=CurrentStatusStaffEnum.BEFORE
+    )
+
     class Meta:
         unique_together = ('record', 'session_no')
         ordering = ['session_no']
@@ -343,6 +356,11 @@ class CustomerSessionRecordModel(BaseSession):
         CustomerRecordModel,
         on_delete=models.CASCADE,
         related_name='customer_session_record'
+    )
+
+    current_status = models.IntegerField(
+        choices=CurrentStatusCustomerEnum.choices,
+        default=CurrentStatusCustomerEnum.BEFORE
     )
 
     class Meta:

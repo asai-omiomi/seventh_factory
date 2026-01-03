@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect,get_object_or_404
 from django.views.generic.base import TemplateView
-from .models import CustomerModel,CustomerRecordModel,StaffModel,CustomerWorkStatusPatternModel,StaffRecordModel, StaffSessionRecordModel,StaffWorkStatusPatternModel,CustomerSessionRecordModel,CustomerSessionPatternModel,TransportPatternModel,StaffSessionPatternModel,TransportRecordModel,WeekdayEnum, PlaceModel,TransportMeansEnum,TransportTypeEnum,StaffWorkStatusEnum, CustomerWorkStatusEnum,  PlaceRemarksModel, OperationLogModel, WORK_SESSION_COUNT
+from .models import CustomerModel,CustomerRecordModel,StaffModel,CustomerWorkStatusPatternModel,StaffRecordModel, StaffSessionRecordModel,StaffWorkStatusPatternModel,CustomerSessionRecordModel,CustomerSessionPatternModel,TransportPatternModel,StaffSessionPatternModel,TransportRecordModel,WeekdayEnum, PlaceModel, PlaceRemarksModel, OperationLogModel, TransportMeansEnum,TransportTypeEnum,StaffWorkStatusEnum, CustomerWorkStatusEnum, CurrentStatusStaffEnum,CurrentStatusCustomerEnum, WORK_SESSION_COUNT
 from .forms import CustomerWorkStatusPatternForm,PlaceRemarksForm,StaffForm,StaffRecordForm,CustomerForm,CustomerWorkStatusPatternForm,CustomerSessionPatternForm,CustomerSessionRecordForm,StaffSessionRecordForm,TransportPatternForm,TransportRecordForm,StaffSessionPatternForm,CustomerRecordForm,StaffWorkStatusPatternForm,CalendarForm,OutputForm
 import datetime
 from dateutil.relativedelta import relativedelta
@@ -24,19 +24,19 @@ def info(request, work_date):
     # =========================
     # POST：勤務状態の更新
     # =========================
-    # if request.method == "POST" and "update_current_status" in request.POST:
-    #     customer_id = request.POST.get("update_current_status")
-    #     work_date = request.POST.get("work_date")
-    #     new_status = request.POST.get("current_status")
+    if request.method == "POST" and "edit_current_status" in request.POST:
+        customer_id = request.POST.get("edit_current_status")
+        work_date = request.POST.get("work_date")
+        new_status = request.POST.get("current_status")
 
-    #     customer_record = get_object_or_404(
-    #         CustomerRecordModel,
-    #         customer__pk=customer_id,
-    #         work_date=work_date
-    #     )
+        customer_record = get_object_or_404(
+            CustomerRecordModel,
+            customer__pk=customer_id,
+            work_date=work_date
+        )
 
-    #     customer_record.current_status = int(new_status)
-    #     customer_record.save()
+        customer_record.current_status = int(new_status)
+        customer_record.save()
 
     # =========================
     # GET：通常の表示
@@ -125,14 +125,6 @@ def _append_off_info(staff_works, customer_records, info):
         'remarks': "",
     })  
 
-# def _status_btn_class(status):
-#     return {
-#         CurrentStatusEnum.BEFORE:   "btn-outline-primary",
-#         CurrentStatusEnum.WORKING:  "btn-primary",
-#         CurrentStatusEnum.FINISHED: "btn-secondary",
-#         CurrentStatusEnum.HOME:     "btn-success",
-#         CurrentStatusEnum.ABSENT:   "btn-danger",
-#     }.get(status, "btn-outline-secondary")
 
 def _build_member_list(
     records,
@@ -143,6 +135,7 @@ def _build_member_list(
     extra_lines_builder=None # 追加表示（送迎など）
 ):
     
+    # work_status複数対応
     if work_status is None:
         work_status_set = None
     elif isinstance(work_status, (list, tuple, set)):
@@ -150,7 +143,8 @@ def _build_member_list(
     else:
         work_status_set = {work_status}
 
-    if not place:
+    # work_status指定時
+    if place is None and work_status_set is not None:
         return [
             {
                 'id': member.id,
@@ -164,7 +158,8 @@ def _build_member_list(
                 or rcd.work_status in work_status_set
             )
         ]
-
+    
+    # 場所指定時
     result = []
 
     for rcd in records:
@@ -197,13 +192,32 @@ def _build_member_list(
         if extra_lines_builder:
             lines.extend(extra_lines_builder(rcd))
 
+        current_status = sessions[0].current_status
+        current_status_text = sessions[0].get_current_status_display()
+
         result.append({
             'id': member.id,
             'name': member.name,
             'display': "\n".join(lines),
+            'current_status': current_status,
+            'current_status_text': current_status_text,
+            'current_status_btn_class': _status_btn_class(current_status)
         })
 
     return result
+
+def _status_btn_class(status):
+    return {
+        CurrentStatusCustomerEnum.BEFORE:   "btn-outline-primary",
+        CurrentStatusCustomerEnum.WORKING:  "btn-primary",
+        CurrentStatusCustomerEnum.FINISHED: "btn-secondary",
+        CurrentStatusCustomerEnum.MOVED:    "btn-secondary",
+        CurrentStatusCustomerEnum.HOME:     "btn-success",
+        CurrentStatusCustomerEnum.ABSENT:   "btn-danger",
+
+        # スタッフは↑の中にすべて入っているので、別で定義しなくてよい
+
+    }.get(status, "btn-outline-secondary")
 
 def _build_customer_extra_lines(rcd):
     lines = []
@@ -413,7 +427,7 @@ def _create_work_sessions_from_pattern_common(
 
 def _get_day(work_date):
     if isinstance(work_date, str):
-        work_date = datetime.strptime(work_date, "%Y-%m-%d").date()
+        work_date = datetime.datetime.strptime(work_date, "%Y-%m-%d").date()
     return work_date.weekday() + 1
 
 def _resolve_work_status_common(

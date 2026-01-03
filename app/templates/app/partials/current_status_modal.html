@@ -1,4 +1,4 @@
-<div class="modal fade" id="statusModal-{{ customer.id }}" tabindex="-1">
+<div class="modal fade" id="statusModal-{{ member.id }}" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
 
@@ -7,7 +7,7 @@
         
         <div class="modal-header">
           <h5 class="modal-title">
-            勤務ステータスの変更（{{ customer.name }}）
+            勤務ステータスの変更（{{ member.name }}）
           </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
@@ -20,7 +20,7 @@
               type="radio"
               name="current_status"
               value="{{ value }}"
-              {% if value == customer.current_status %}checked{% endif %}>
+              {% if value == member.current_status %}checked{% endif %}>
             <label class="form-check-label">
               {{ label }}
             </label>
@@ -32,8 +32,8 @@
           <button
             type="submit"
             class="btn btn-primary"
-            name="update_current_status"
-            value="{{ customer.id }}">
+            name="edit_current_status"
+            value="{{ member.id }}">
             変更
           </button>
           <input type="hidden" name="work_date" value="{{ work_date }}">
