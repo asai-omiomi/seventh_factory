@@ -40,8 +40,8 @@
             {% for day in day_patterns %}
                 <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="day-{{ day.value }}" role="tabpanel">
                     <div class="work-fields mt-3 mb-3">
-                        <div class="copy-controls">                      
-                            <select id="copy-weekday-{{ day.value }}" class="form-select copy-weekday-select d-inline-block w-auto ms-2" style="border: 1px solid #333;">
+                        <div class="copy-controls">                                       
+                            <select id="copy-weekday-{{ day.value }}" class="form-select copy-weekday-select d-inline-block w-auto" style="border: 1px solid #333;">
                                 {% for value, label in weekday_choices %}
                                     <option value="{{ value }}"
                                         {% if value == 1 %}selected{% endif %}
@@ -50,10 +50,9 @@
                                     </option>
                                 {% endfor %}
                             </select>
-
-                            <span class="ms-2">曜日のデータをコピーする</span>
-
-                            <button type="button" class="btn-sm" data-target-day="{{ day.value }}">
+                            <span class="ms-2">曜のデータをコピーする</span>
+                        
+                            <button type="button" class="btn-sm mt-2" data-target-day="{{ day.value }}">
                                 実行
                             </button>                           
                         </div>
