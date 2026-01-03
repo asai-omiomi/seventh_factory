@@ -6,6 +6,7 @@
         border-radius: 5px;
         margin-bottom: 20px
     }
+
 </style>
 
 <div class="wrapper">
@@ -51,7 +52,30 @@
                         {% else %}
                             {% include "app/partials/session_block.html" with forms=day.session_forms label="勤務セッション" %}
                         {% endif %}
+                        <hr class="my-4">
+
+                         <!-- ここにコンボボックス(月～日 初期値は「月」)+文字列「曜日のデータをコピーする」+ボタン「実行」を作りたい -->
+                        <div class="copy-controls mt-3">
+                            <select id="copy-weekday-{{ day.value }}" class="form-select copy-weekday-select d-inline-block w-auto ms-2" style="border: 1px solid #333;">
+                                {% for value, label in weekday_choices %}
+                                    <option value="{{ value }}"
+                                        {% if value == 1 %}selected{% endif %}
+                                    >
+                                        {{ label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+
+                            <span class="ms-2">曜日のデータをコピーする</span>
+
+                            <button type="button" class="btn-sm" data-target-day="{{ day.value }}">
+                                実行
+                            </button>
+                        </div>
+
+
                     </div>
+
                 </div>
             {% endfor %}
         </div>
@@ -63,11 +87,13 @@
 
 {% if transport %}
 <script>
+    const TRANSFER_VALUE = "{{ transfer_value }}";
     setupTransportControl();
 </script>
 {% endif %}
 
 <script>
+    setupCopyControl();
     setupToggleWorkStatusControl();
     setupFormValidation();
 </script>

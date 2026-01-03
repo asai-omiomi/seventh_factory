@@ -1,4 +1,4 @@
-function toggleFieldsByName(selector, show, parent=document) {
+function toggleFieldsByName(selector, show, parent = document) {
 
     const targetFields = parent.querySelectorAll(selector);
     if (!targetFields) return;
@@ -89,22 +89,22 @@ function validateForm(event) {
 
     const workStatus = document.getElementById('id_work_status');
 
-    if(workStatus && workStatus.value !== '0'){ 
+    if (workStatus && workStatus.value !== '0') {
         // 勤務ステータスがON or OFFICE 以外の場合（欠勤、在宅など）はチェック不要
-    } else{
+    } else {
         const morningTransportMeans = document.getElementById('id_morning_transport_means');
-        if (morningTransportMeans && morningTransportMeans.value === TRANSFER_VALUE){
+        if (morningTransportMeans && morningTransportMeans.value === TRANSFER_VALUE) {
             const pickupStaff = document.getElementById('id_pickup_staff');
-            if(!pickupStaff.value) {
+            if (!pickupStaff.value) {
                 valid = false;
                 errorMessage = '送迎のスタッフの入力は必須です。'
             }
         }
 
         const returnTransportMeans = document.getElementById('id_return_transport_means');
-        if (returnTransportMeans && returnTransportMeans.value === TRANSFER_VALUE){
+        if (returnTransportMeans && returnTransportMeans.value === TRANSFER_VALUE) {
             const dropoffStaff = document.getElementById('id_dropoff_staff');
-            if(!dropoffStaff.value) {
+            if (!dropoffStaff.value) {
                 valid = false;
                 errorMessage = '送迎のスタッフの入力は必須です。'
             }
@@ -129,7 +129,7 @@ function validateForm(event) {
     }
 }
 
-function setupFormValidation(){
+function setupFormValidation() {
     document.addEventListener('DOMContentLoaded', () => {
         const form = document.getElementById('form');
         form.addEventListener('submit', (event) => {
@@ -137,6 +137,60 @@ function setupFormValidation(){
             if (action === 'save') {
                 validateForm(event);
             }
+        });
+    });
+}
+
+function setupCopyControl() {
+    document.addEventListener('DOMContentLoaded', function () {
+
+        document.querySelectorAll('.copy-controls button').forEach(button => {
+            button.addEventListener('click', function () {
+
+                const targetDay = this.dataset.targetDay;
+                const select = this.closest('.copy-controls')
+                    .querySelector('.copy-weekday-select');
+                const sourceDay = select.value;
+
+
+                if (sourceDay === targetDay) {
+                    console.log(new Error().stack);
+                    // 同じ曜日の場合は何もしない
+                    return;
+                }
+
+                const sourceTab = document.getElementById(`day-${sourceDay}`);
+                const targetTab = document.getElementById(`day-${targetDay}`);
+
+                if (!sourceTab || !targetTab) {
+                    alert('コピー元またはコピー先が見つかりません');
+                    return;
+                }
+
+                // copyFormValues(sourceTab, targetTab);
+                const sourceFields = sourceTab.querySelectorAll('input, select, textarea');
+
+                sourceFields.forEach(src => {
+                    if (!src.name) return;
+
+                    const targetName = src.name.replace(
+                        `day${sourceDay}`,
+                        `day${targetDay}`
+                    );
+
+                    const tgt = targetTab.querySelector(`[name="${CSS.escape(targetName)}"]`);
+                    if (!tgt) return;
+
+                    if (src.type === 'checkbox' || src.type === 'radio') {
+                        tgt.checked = src.checked;
+                    } else {
+                        tgt.value = src.value;
+                    }
+
+                    // changeイベントを発火（表示制御がある場合に重要）
+                    tgt.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+            });
         });
     });
 }

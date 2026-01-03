@@ -53,8 +53,7 @@ def info(request, work_date):
         'work_date':work_date,
         'calendar_form':calendar_form,
         'info': info,
-        'transport_table_rows': transport_table_rows,
-        # 'current_status_choices': CurrentStatusEnum.choices, 
+        'transport_table_rows': transport_table_rows, 
         })
 
 def _build_info(work_date):
@@ -991,6 +990,7 @@ def _create_or_edit_common(
         id_kwarg_name: owner_id_value,
         'form_action': form_action,
         'transfer_value': TransportMeansEnum.TRANSFER,
+        'weekday_choices':WeekdayEnum.choices,
     })
 
 
