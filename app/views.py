@@ -69,6 +69,8 @@ def _build_info(work_date):
 
     # 勤務地別を追加
     _append_place_info(staff_records, customer_records, work_date, info)
+    # 勤務地なしを追加
+    # _append_no_place_info(staff_records, customer_records, work_date, info)
     # 在宅を追加
     _append_home_info(customer_records, info)
     # 休みを追加
@@ -80,8 +82,18 @@ def _append_place_info(staff_records, customer_records, work_date, info):
     places = PlaceModel.objects.all()
 
     for place in places:
-        staff_list = _bulid_staff_list(staff_records, place)    
-        customer_list = _build_customer_list(customer_records, place)  
+        staff_list = _build_member_list_by_place(
+            staff_records,
+            place=place,
+            get_member=lambda rcd: rcd.staff,
+            session_model=StaffSessionRecordModel,
+        )
+        customer_list = _build_member_list_by_place(
+            customer_records,
+            place=place,
+            get_member=lambda rcd: rcd.customer,
+            session_model=CustomerSessionRecordModel,
+        ) 
         staff_customer_list = _build_staff_customer_list(staff_list, customer_list)
         remarks = _build_remarks(place, work_date)
 
@@ -93,49 +105,85 @@ def _append_place_info(staff_records, customer_records, work_date, info):
             'remarks': remarks,
         })  
 
+# def _append_no_place_info(staff_records, customer_records, work_date, info):
+
+#     staff_list = _bulid_staff_list
+    
+
 def _append_home_info(customer_records, info):
-
-    customer_list = _build_customer_list(customer_records, None, CustomerWorkStatusEnum.HOME)
-    staff_cusotmer_list = _build_staff_customer_list(None, customer_list)
-    
-    info.append({
-        'place_id': -1,
-        'place_name': "在宅",
-        'color': "table-success",
-        'staff_cusotmer_list': staff_cusotmer_list,
-        'remarks': "",
-    })     
-
-def _append_off_info(staff_works, customer_records, info):
-
-    staff_list = _bulid_staff_list(
-        staff_works, 
-        None, 
-        work_status=[StaffWorkStatusEnum.OFF, StaffWorkStatusEnum.OFF_WITH_PAY],
+    _append_status_info(
+            info=info,
+            place_id=-1,
+            place_name="在宅",
+            color="table-success",
+            customer_records=customer_records,
+            customer_work_status=CustomerWorkStatusEnum.HOME,
         )
-    customer_list = _build_customer_list(customer_records, None, CustomerWorkStatusEnum.OFF)
 
-    staff_cusotmer_list = _build_staff_customer_list(staff_list, customer_list)
+def _append_off_info(staff_records, customer_records, info):
+    _append_status_info(
+        info=info,
+        place_id=-1,
+        place_name="休み",
+        color="table-danger",
+        staff_records=staff_records,
+        staff_work_status=[
+            StaffWorkStatusEnum.OFF,
+            StaffWorkStatusEnum.OFF_WITH_PAY,
+        ],
+        customer_records=customer_records,
+        customer_work_status=CustomerWorkStatusEnum.OFF,
+    )   
+
+def _append_status_info(
+    *,
+    info,
+    place_id,
+    place_name,
+    color,
+    staff_records=None,
+    customer_records=None,
+    staff_work_status=None,
+    customer_work_status=None,
+):
+    staff_list = []
+    customer_list = []
+
+    if staff_records is not None and staff_work_status is not None:
+        staff_list = _build_member_list_by_work_status(
+            staff_records,
+            get_member=lambda rcd: rcd.staff,
+            work_status=staff_work_status,
+        )
+
+    if customer_records is not None and customer_work_status is not None:
+        customer_list = _build_member_list_by_work_status(
+            customer_records,
+            get_member=lambda rcd: rcd.customer,
+            work_status=customer_work_status,
+        )
+
+    staff_customer_list = _build_staff_customer_list(
+        staff_list or None,
+        customer_list or None,
+    )
 
     info.append({
-        'place_id': -1,
-        'place_name': "休み",
-        'color': "table-danger",
-        'staff_cusotmer_list': staff_cusotmer_list,
+        'place_id': place_id,
+        'place_name': place_name,
+        'color': color,
+        'staff_cusotmer_list': staff_customer_list,
         'remarks': "",
-    })  
+    })
 
 
-def _build_member_list(
+def _build_member_list_by_work_status(
     records,
-    place,
+    *,
+    get_member,
     work_status,
-    get_member,              # rcd → customer / staff
-    session_model,           
-    extra_lines_builder=None # 追加表示（送迎など）
 ):
-    
-    # work_status複数対応
+    # 複数対応
     if work_status is None:
         work_status_set = None
     elif isinstance(work_status, (list, tuple, set)):
@@ -143,23 +191,6 @@ def _build_member_list(
     else:
         work_status_set = {work_status}
 
-    # work_status指定時
-    if place is None and work_status_set is not None:
-        return [
-            {
-                'id': member.id,
-                'name': member.name,
-                'display': member.name,
-            }
-            for rcd in records
-            if (member := get_member(rcd))
-            and (
-                work_status_set is None
-                or rcd.work_status in work_status_set
-            )
-        ]
-    
-    # 場所指定時
     result = []
 
     for rcd in records:
@@ -167,13 +198,34 @@ def _build_member_list(
         if not member:
             continue
 
-        if work_status_set is not None and rcd.work_status not in work_status_set:
+        if work_status_set is not None and rcd.work_status in work_status_set:
+            result.append({
+                'id': member.id,
+                'name': member.name,
+                'display': member.name,
+            })
+
+    return result
+
+def _build_member_list_by_place(
+    records,
+    *,
+    place,
+    get_member,
+    session_model,
+    extra_lines_builder=None,
+):
+    result = []
+
+    for rcd in records:
+        member = get_member(rcd)
+        if not member:
             continue
 
-        # 勤務セッション（place に一致するもの）
-        sessions = session_model.objects.filter(
-            record=rcd,
-            place=place,
+        sessions = (
+            session_model.objects
+            .filter(record=rcd, place=place)
+            .order_by('session_no')
         )
 
         if not sessions.exists():
@@ -181,27 +233,25 @@ def _build_member_list(
 
         lines = [member.name]
 
-        # 勤務時間
-        for s in sessions.order_by('session_no'):
+        for s in sessions:
             if s.start_time and s.end_time:
                 lines.append(
                     f"{s.start_time.strftime('%H:%M')}～{s.end_time.strftime('%H:%M')}"
                 )
 
-        # 追加情報（送迎など）
         if extra_lines_builder:
             lines.extend(extra_lines_builder(rcd))
 
-        current_status = sessions[0].current_status
-        current_status_text = sessions[0].get_current_status_display()
+        # current_status は session 側から取る
+        first_session = sessions[0]
 
         result.append({
             'id': member.id,
             'name': member.name,
             'display': "\n".join(lines),
-            'current_status': current_status,
-            'current_status_text': current_status_text,
-            'current_status_btn_class': _status_btn_class(current_status)
+            'current_status': first_session.current_status,
+            'current_status_text': first_session.get_current_status_display(),
+            'current_status_btn_class': _status_btn_class(first_session.current_status),
         })
 
     return result
@@ -248,24 +298,24 @@ def _build_customer_extra_lines(rcd):
 
     return lines
 
-def _bulid_staff_list(staff_records, place, work_status=None):
-    return _build_member_list(
-        records=staff_records,
-        place=place,
-        work_status=work_status,
-        get_member=lambda rcd: rcd.staff,
-        session_model=StaffSessionRecordModel,
-    ) 
+# def _bulid_staff_list(staff_records, place, work_status=None):
+#     return _build_member_list(
+#         records=staff_records,
+#         place=place,
+#         work_status=work_status,
+#         get_member=lambda rcd: rcd.staff,
+#         session_model=StaffSessionRecordModel,
+#     ) 
 
-def _build_customer_list(customer_records, place, work_status=None):
-    return _build_member_list(
-        records=customer_records,
-        place=place,
-        work_status=work_status,
-        get_member=lambda rcd: rcd.customer,
-        session_model=CustomerSessionRecordModel,
-        extra_lines_builder=_build_customer_extra_lines,
-    )
+# def _build_customer_list(customer_records, place, work_status=None):
+#     return _build_member_list(
+#         records=customer_records,
+#         place=place,
+#         work_status=work_status,
+#         get_member=lambda rcd: rcd.customer,
+#         session_model=CustomerSessionRecordModel,
+#         extra_lines_builder=_build_customer_extra_lines,
+#     )
     
 def _build_remarks(place=None, work_date=None):
     if not place:
