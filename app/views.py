@@ -26,6 +26,7 @@ def info(request, work_date):
     # =========================
     if request.method == "POST" and "edit_current_status" in request.POST:
         _update_session_current_status(
+            request,
             member_type=request.POST["member_type"],
             member_id=int(request.POST["member_id"]),
             work_date=request.POST["work_date"],
@@ -55,6 +56,7 @@ def info(request, work_date):
         })
 
 def _update_session_current_status(
+    request,
     *,
     member_type,
     member_id,
@@ -67,6 +69,7 @@ def _update_session_current_status(
             staff_id=member_id,
             work_date=work_date,
         )
+        member_name = record.staff.name
         session_model = StaffSessionRecordModel
         special_statuses = [CurrentStatusStaffEnum.ABSENT]
         record_status_mapping = {
@@ -79,6 +82,7 @@ def _update_session_current_status(
             customer_id=member_id,
             work_date=work_date,
         )
+        member_name = record.customer.name
         session_model = CustomerSessionRecordModel
         special_statuses = [CurrentStatusCustomerEnum.HOME, CurrentStatusCustomerEnum.ABSENT]
         record_status_mapping = {
@@ -96,7 +100,22 @@ def _update_session_current_status(
             record=record,
             place_id=place_id,
         )
-        sessions.update(current_status=new_status)
+
+        for session in sessions:
+            # prev_status = session.current_status
+            session.current_status = new_status
+            # session.save()
+            
+            # log_operation(
+            #     user=request.user,
+            #     action='UPDATE',
+            #     target=session,
+            #     description=(
+            #         f'[{work_date}][{member_name}]'
+            #         f'[{session.place.name}][勤務ステータス変更]'
+            #         f'【{prev_status}→{new_status}】'
+            #     ),
+            # )     
 
     else:
         # 在宅・休みの場合:全セッションを初期化
@@ -1737,6 +1756,7 @@ SESSION_FIELD_MAP = {
     'place': '場所',
     'start_time': '開始時間',
     'start_time': '終了時間',
+    'current_status': '勤務ステータス'
 }
 
 def model_snapshot(instance):
@@ -1822,9 +1842,6 @@ def log_operation(
     description='',
     diff=None,
 ):
-    """
-    操作ログを作成
-    """
     if target is not None:
         try:
             target_model = target.__class__.__name__
