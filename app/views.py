@@ -13,6 +13,7 @@ from django.db import transaction
 from django.forms.models import model_to_dict
 from django.db import models
 from django.utils import timezone
+from django.contrib import messages
 
 class IndexView(TemplateView):
     template_name = 'app/index.html'
@@ -1554,11 +1555,47 @@ def _save_transport_pattern(request, customer, day_value, transport_type):
     return True
 
 def sysad(request):
-    return render(request,'app/sysad.html', {
+    calendar_form = CalendarForm(initial_date=timezone.now().date())
 
+    return render(request,'app/sysad.html', {
+            'calendar_form':calendar_form,
         })
 
+def delete_record(request):
+    print("0")
+    if request.method == 'POST':
+        print("1")
+        date = request.POST.get('date')
 
+    if not date:
+        print("2")
+        # 日付が指定されていなければ戻す
+        return redirect('sysad')
+
+    # トランザクション内でまとめて削除
+    with transaction.atomic():
+        # 1. 顧客セッション
+        CustomerSessionRecordModel.objects.filter(record__work_date=date).delete()
+
+        # 2. 顧客レコード
+        CustomerRecordModel.objects.filter(work_date=date).delete()
+
+        # 3. スタッフセッション
+        StaffSessionRecordModel.objects.filter(record__work_date=date).delete()
+
+        # 4. スタッフレコード
+        StaffRecordModel.objects.filter(work_date=date).delete()
+
+        # 5. 送迎記録
+        TransportRecordModel.objects.filter(record__work_date=date).delete()
+
+        # 6. 場所備考
+        PlaceRemarksModel.objects.filter(work_date=date).delete()
+
+        print("成功")
+        messages.success(request, f"{date} のデータを削除しました。")
+
+    return redirect('sysad')
 
 def output(request):
 

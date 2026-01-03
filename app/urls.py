@@ -35,6 +35,7 @@ urlpatterns = [
     path('output/', views.output, name='output'),      
     path('output/execute', views.output_execute, name='output_execute'),  
     path('sysad/', views.sysad, name='sysad'), 
+    path('sysad/delete_record', views.delete_record, name='delete_record'), 
       
 
     path('password_change/', views.password_change, name='password_change'),  

@@ -9,6 +9,35 @@
 <div class="wrapper">
     <h1>システム管理</h1>
 
+    
+    <hr class="my-4">
+    <form action="{% url 'delete_record' %}" method="post">
+        {% csrf_token %}
+        <div>
+            {{ calendar_form.date }}のデータを一括削除する
+            <button class="btn-sm" type="submit" name="delete_record" value="0" onclick="return confirm('本当に削除しますか？');">
+                実行
+            </button>
+
+            <p class="mt-1">
+                ※間違って祝日のデータを作成してしまったときなどに使用してください。<br>
+                ※データが消えますので、十分注意して実行してください。
+            </p>
+            {% if messages %}
+            <div class="mt-3">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>   
+    </form> 
+    
+    <hr class="my-4">   
+
 </div>
 
 {% endblock %}
