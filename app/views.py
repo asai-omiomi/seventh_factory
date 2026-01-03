@@ -452,9 +452,9 @@ def _build_remarks(place=None, work_date=None):
 
     place_remarks = PlaceRemarksModel.objects.filter(place=place, work_date=work_date).first()
     if place_remarks:
-        return place_remarks.remarks or "　"
+        return place_remarks.remarks or ""
     else:
-        return "　"
+        return ""
 
 
 def _build_staff_customer_list(staff_list, customer_list):

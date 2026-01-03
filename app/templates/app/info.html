@@ -47,44 +47,44 @@
 
     <form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
         {% csrf_token %}
-        <div class="d-flex justify-content-between align-items-end mt-5">
-            {% if info %}
-            <ul class="nav nav-tabs mt-5" id="tab" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all-info" type="button"
-                        role="tab">
-                        全体情報
-                    </button>
-                </li>
-
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="transport-tab" data-bs-toggle="tab" data-bs-target="#transport-info"
-                        type="button" role="tab">
-                        送迎情報
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="log-tab" data-bs-toggle="tab" data-bs-target="#log-info"
-                        type="button" role="tab">
-                        操作履歴
-                    </button>
-                </li>
-            </ul>
-            {% else %}
+        <div class="d-flex justify-content-end">
             <div>
-                <h2>データが存在しません</h2>
-                <button class="btn-sm" id="id_create_data" type="submit" name="create_records" value="0" 
-                    {% if not request.user.is_superuser %} disabled {% endif %}>
-                    データを作成する
-                </button>
-            </div>
-
-            {% endif %}
-            <div class="d-flex align-items-center gap-2 mb-1">
                 {{ calendar_form.date }}
                 <button class="btn-sm" type="submit" name="change_date" value="0">更新</button>
             </div>
         </div>
+        {% if info %}
+        <ul class="nav nav-tabs mt-2" id="tab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all-info" type="button"
+                    role="tab">
+                    全体情報
+                </button>
+            </li>
+
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="transport-tab" data-bs-toggle="tab" data-bs-target="#transport-info"
+                    type="button" role="tab">
+                    送迎情報
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="log-tab" data-bs-toggle="tab" data-bs-target="#log-info"
+                    type="button" role="tab">
+                    操作履歴
+                </button>
+            </li>
+        </ul>
+        {% else %}
+        <div>
+            <h2>データが存在しません</h2>
+            <button class="btn-sm" id="id_create_data" type="submit" name="create_records" value="0" 
+                {% if not request.user.is_superuser %} disabled {% endif %}>
+                データを作成する
+            </button>
+        </div>
+
+        {% endif %}
     </form>
 
     {% if info %}
@@ -96,103 +96,101 @@
                 <table class="table table-bordered">
                     <thead class="table-header text-center table-primary">
                         <tr>
-                            <th style="min-width: 130px;">スタッフ</th>
-                            <th style="min-width: 200px;">利用者</th>
-                            <th style="min-width: 150px;">作業内容など</th>
+                            <th>スタッフ</th>
+                            <th>利用者</th>
                         </tr>
                     </thead>
 
                     <tbody>
                         {% for info in info %}
-                        {% if info.staff_cusotmer_list %}
-                        <!-- 場所名 -->
-                        <tr class="{{info.color}}">
-                            <td colspan="3" class="fw-bold">
-                                {{ info.place_name }}
-                            </td>
-                        </tr>
-                        {% with info.staff_cusotmer_list|length as rowspan %}
-                        {% for staff, customer in info.staff_cusotmer_list %}
-                        {% if staff or customer %}
-                        <tr>
-                            <td>
-                                {% if staff %}
-                                <div class="d-flex justify-content-between">
-                                    <!-- 左側：スタッフ情報 -->
-                                    <div>
-                                        <div class="mt-1">{{ staff.display | linebreaksbr }}</div>
-                                    </div>
-                                    
-                                    <!-- 右側：ボタン -->
-                                    <div>
-                                        <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
-                                            {% csrf_token %}
-                                            <div class="d-flex gap-1 align-items-center">
-                                                <button type="button"
-                                                    class="btn btn-sm {{ staff.current_status_btn_class }}"
-                                                    data-bs-toggle="modal" data-bs-target="#statusModal-{{ staff.id }}">
-                                                    {{ staff.current_status_text }}
-                                                </button>                              
-                                                <button id="edit-staff_btn-{{ staff.id }}" class="btn-sm text-nowrap"
-                                                    type="submit" name="staff_record_edit" value="{{ staff.id }}">
-                                                    編集
-                                                </button>  
-                                            </div>                                      
-                                        </form>
-                                    </div>
-                                </div>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if customer %}
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <!-- 左側：利用者情報 -->
-                                    <div>
-                                        <div>{{ customer.display | linebreaksbr }}</div>
-                                    </div>
+                            {% if info.staff_cusotmer_list %}
+                                <!-- 場所名 -->
+                                <tr class="{{info.color}}">
+                                    <td colspan="2" class="fw-bold">
+                                        {{ info.place_name }}
+                                    </td>
+                                </tr>
+                                {% with info.staff_cusotmer_list|length as rowspan %}
+                                    {% for staff, customer in info.staff_cusotmer_list %}
+                                        {% if staff or customer %}
+                                        <tr>
+                                            <td>
+                                                {% if staff %}
+                                                <div>
+                                                    <div class="mt-1">{{ staff.display | linebreaksbr }}</div>
+                                                </div>  
+                                                
+                                                <div class="mt-1">
+                                                    <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
+                                                        {% csrf_token %}
+                                                        <div class="d-flex gap-1">
+                                                            {% if info.place_id > 0 %}
+                                                            <button type="button"
+                                                                class="btn btn-sm {{ staff.current_status_btn_class }}"
+                                                                data-bs-toggle="modal" data-bs-target="#statusModal-{{ staff.id }}">
+                                                                {{ staff.current_status_text }}
+                                                            </button>                 
+                                                            {% endif %}             
+                                                            <button id="edit-staff_btn-{{ staff.id }}" class="btn-sm text-nowrap"
+                                                                type="submit" name="staff_record_edit" value="{{ staff.id }}">
+                                                                編集
+                                                            </button>  
+                                                        </div>                                      
+                                                    </form>
+                                                </div>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if customer %}
+                                                <div>
+                                                    <div>{{ customer.display | linebreaksbr }}</div>
+                                                </div>
 
-                                    <!-- 右側：ボタン -->
-                                    <div>
-                                        <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
-                                            {% csrf_token %}
-                                            <div class="d-flex gap-1 align-items-center">
-                                                <button type="button"
-                                                    class="btn btn-sm {{ customer.current_status_btn_class }}"
-                                                    data-bs-toggle="modal" data-bs-target="#statusModal-{{ customer.id }}">
-                                                    {{ customer.current_status_text }}
-                                                </button>                                            
-                                                <button id="edit-customer_btn-{{ customer.id }}" class="btn-sm text-nowrap"
-                                                    type="submit" name="customer_record_edit" value="{{ customer.id }}">
-                                                    編集
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                                {% endif %}
-                            </td>
-                            {% if forloop.first %}
-                            <td rowspan="{{ rowspan }}">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    {{ info.remarks | linebreaksbr }}
+                                                <div class="mt-1">
+                                                    <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
+                                                        {% csrf_token %}
+                                                        <div class="d-flex gap-1 align-items-center">
+                                                            {% if info.place_id > 0 %}
+                                                            <button type="button"
+                                                                class="btn btn-sm {{ customer.current_status_btn_class }}"
+                                                                data-bs-toggle="modal" data-bs-target="#statusModal-{{ customer.id }}">
+                                                                {{ customer.current_status_text }}
+                                                            </button> 
+                                                            {% endif %}                                             
+                                                            <button id="edit-customer_btn-{{ customer.id }}" class="btn-sm text-nowrap"
+                                                                type="submit" name="customer_record_edit" value="{{ customer.id }}">
+                                                                編集
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                    <!-- 備考を場所ごとの下に1行で表示 -->
                                     {% if info.place_id > 0 %}
-                                    <form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
-                                        {% csrf_token %}
-                                        <button id="edit_place_remarks_btn-{{ info.place_id }}" class="btn-sm text-nowrap"
-                                            type="submit" name="place_remarks_edit" value="{{ info.place_id }}">
-                                            編集
-                                        </button>
-                                    </form>
+                                        {% if info.remarks %}
+                                            <tr>
+                                                <td colspan="2">
+                                                        <div class="mb-1">
+                                                            [備考]
+                                                            {{ info.remarks | linebreaksbr }}
+                                                        </div>
+                                                        <form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
+                                                            {% csrf_token %} 
+                                                            <button id="edit_place_remarks_btn-{{ info.place_id }}" class="btn-sm text-nowrap" type="submit" name="place_remarks_edit" value="{{ info.place_id }}"> 
+                                                                編集 
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {% endif %}    
                                     {% endif %}
-                                </div>
-                            </td>
+                                {% endwith %}
                             {% endif %}
-
-                        </tr>
-                        {% endif %}
-                        {% endfor %}
-                        {% endwith %}
-                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>
@@ -205,9 +203,9 @@
                 <table class="table table-bordered">
                     <thead class="table-header text-center table-primary">
                         <tr>
-                            <th style="min-width: 130px;">スタッフ名</th>
-                            <th style="min-width: 150px;">朝の送迎</th>
-                            <th style="min-width: 150px;">帰りの送迎</th>
+                            <th>スタッフ名</th>
+                            <th>朝の送迎</th>
+                            <th>帰りの送迎</th>
                         </tr>
                     </thead>
                     <tbody>
