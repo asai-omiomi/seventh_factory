@@ -7,7 +7,7 @@ WORK_SESSION_COUNT = 3
 class StaffWorkStatusEnum(models.IntegerChoices):
     ON              = 1, "出勤"
     OFF             = 9, "欠勤"
-    OFF_WITH_PAY    = 8, "有給"
+    OFF_WITH_PAY    = 10, "有給"
 
 class CustomerWorkStatusEnum(models.IntegerChoices):
     OFFICE  = 1, "通所"

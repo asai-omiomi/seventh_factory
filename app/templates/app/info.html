@@ -63,6 +63,14 @@
                         送迎情報
                     </button>
                 </li>
+                {% if request.user.is_superuser %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="log-tab" data-bs-toggle="tab" data-bs-target="#log-info"
+                        type="button" role="tab">
+                        操作履歴
+                    </button>
+                </li>
+                {% endif %}
             </ul>
             {% else %}
             <div>
@@ -216,7 +224,9 @@
                 </tbody>
                 </table>
             </div>
-
+        </div>
+        <div class="tab-pane fade " id="log-info" role="tabpanel">
+            操作履歴
         </div>
     </div>
 

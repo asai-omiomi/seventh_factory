@@ -324,10 +324,14 @@ def _build_member_list_by_work_status(
             continue
 
         if work_status_set is not None and rcd.work_status in work_status_set:
+            display_name = member.name
+            if hasattr(rcd, 'work_status') and rcd.work_status == StaffWorkStatusEnum.OFF_WITH_PAY:
+                display_name += "(有給)"
+
             result.append({
                 'id': member.id,
                 'name': member.name,
-                'display': member.name,
+                'display': display_name,
             })
 
     return result
