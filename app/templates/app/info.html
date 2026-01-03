@@ -223,10 +223,10 @@
     {% for info in info %}
     {% for staff, customer in info.staff_cusotmer_list %}
     {% if staff %}
-    {% include "app/partials/current_status_modal.html" with member=staff current_status_choices=current_status_staff_choices%}
+    {% include "app/partials/current_status_modal.html" with member=staff member_type="staff" current_status_choices=current_status_staff_choices place_id=info.place_id %}
     {% endif %}
     {% if customer %}
-    {% include "app/partials/current_status_modal.html" with member=customer current_status_choices=current_status_customer_choices%}
+    {% include "app/partials/current_status_modal.html" with member=customer member_type="customer" current_status_choices=current_status_customer_choices place_id=info.place_id %}
     {% endif %}
     {% endfor %}
     {% endfor %}

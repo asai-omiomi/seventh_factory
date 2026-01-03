@@ -25,7 +25,15 @@ def info(request, work_date):
     # POST：勤務状態の更新
     # =========================
     if request.method == "POST" and "edit_current_status" in request.POST:
+        _update_session_current_status(
+            member_type=request.POST["member_type"],
+            member_id=int(request.POST["member_id"]),
+            work_date=request.POST["work_date"],
+            place_id=int(request.POST["place_id"]),
+            new_status=int(request.POST["current_status"]),
+        )
 
+        return redirect("info", work_date=request.POST["work_date"])
     # =========================
     # GET：通常の表示
     # =========================
@@ -45,6 +53,68 @@ def info(request, work_date):
         'current_status_staff_choices': CurrentStatusStaffEnum.choices,
         'current_status_customer_choices': CurrentStatusCustomerEnum.choices,
         })
+
+def _update_session_current_status(
+    *,
+    member_type,
+    member_id,
+    work_date,
+    place_id,
+    new_status,
+):
+    if member_type == "staff":
+        record = StaffRecordModel.objects.get(
+            staff_id=member_id,
+            work_date=work_date,
+        )
+        session_model = StaffSessionRecordModel
+        special_statuses = [CurrentStatusStaffEnum.ABSENT]
+        record_status_mapping = {
+            CurrentStatusStaffEnum.ABSENT: StaffWorkStatusEnum.OFF
+        }
+        initial_status = CurrentStatusStaffEnum.BEFORE
+
+    elif member_type == "customer":
+        record = CustomerRecordModel.objects.get(
+            customer_id=member_id,
+            work_date=work_date,
+        )
+        session_model = CustomerSessionRecordModel
+        special_statuses = [CurrentStatusCustomerEnum.HOME, CurrentStatusCustomerEnum.ABSENT]
+        record_status_mapping = {
+            CurrentStatusCustomerEnum.HOME: CustomerWorkStatusEnum.HOME,
+            CurrentStatusCustomerEnum.ABSENT: CustomerWorkStatusEnum.OFF
+        }
+        initial_status = CurrentStatusCustomerEnum.BEFORE
+
+    else:
+        raise ValueError("invalid member_type")
+
+    if new_status not in special_statuses:
+        # 通常の更新：current_status のみ
+        sessions = session_model.objects.filter(
+            record=record,
+            place_id=place_id,
+        )
+        sessions.update(current_status=new_status)
+
+    else:
+        # 在宅・休みの場合:全セッションを初期化
+        sessions = session_model.objects.filter(
+            record=record,
+        )
+
+        sessions.update(
+            current_status=initial_status,
+            place=None,
+            start_time=None,
+            end_time=None
+        )
+
+        # recordModel の work_status を更新
+        record.work_status = record_status_mapping[new_status]
+        record.save()
+       
 
 def _build_info(work_date):
 
