@@ -69,11 +69,22 @@
         </ul>
         {% else %}
         <div>
-            <h2>データが存在しません</h2>
-            <button class="btn-sm" id="id_create_data" type="submit" name="create_records" value="0" 
-                {% if not request.user.is_superuser %} disabled {% endif %}>
-                データを作成する
-            </button>
+            <h2>勤務データが存在しません</h2>
+            {% if request.user.is_superuser %}
+            <div class="mt-1">
+                利用者・スタッフの曜日別の登録データを元に勤務データを作成する(通常はこちら)
+                <button class="btn-sm" id="id_create_records" type="submit" name="create_records" value="0">
+                    実行
+                </button>
+            </div>
+            <div class="mt-1">
+                全員休みの勤務データを作成する(祝日・年末年始など)
+                <button class="btn-sm" id="id_create_records_off_day" type="submit" name="create_records_off_day" value="0">
+                    実行
+                </button>
+            </div>
+
+            {% endif %}
         </div>
 
         {% endif %}

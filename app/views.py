@@ -519,11 +519,14 @@ def _format_transport(t):
 
 def info_dispatch(request, work_date):
     assert request.method == 'POST'
+
     change_date = request.POST.get('change_date')
     create_records = request.POST.get('create_records')
     place_remarks_edit = request.POST.get('place_remarks_edit')
     customer_record_edit = request.POST.get('customer_record_edit')
     staff_record_edit = request.POST.get('staff_record_edit')
+    create_records = request.POST.get('create_records')
+    create_records_off_day = request.POST.get('create_records_off_day')
    
     if change_date:
         work_date = request.POST.get('date')
@@ -531,6 +534,9 @@ def info_dispatch(request, work_date):
     elif create_records:
         work_date = request.POST.get('date')
         _create_records(work_date)
+        return redirect('info', work_date)
+    elif create_records_off_day:
+        _create_records_off_day(work_date)
         return redirect('info', work_date)
     elif place_remarks_edit:
         place_id = place_remarks_edit
@@ -573,6 +579,34 @@ def _create_records(work_date):
         session_record_model=CustomerSessionRecordModel,
         with_transport=True,
     )
+
+def _create_records_off_day(work_date):
+    with transaction.atomic():  # まとめてトランザクション
+        # --- Staff ---
+        for staff in StaffModel.objects.all():
+            record_exists = StaffRecordModel.objects.filter(
+                staff=staff,
+                work_date=work_date
+            ).exists()
+            if not record_exists:
+                StaffRecordModel.objects.create(
+                    staff=staff,
+                    work_date=work_date,
+                    work_status=StaffWorkStatusEnum.OFF
+                )
+
+        # --- Customer ---
+        for customer in CustomerModel.objects.all():
+            record_exists = CustomerRecordModel.objects.filter(
+                customer=customer,
+                work_date=work_date
+            ).exists()
+            if not record_exists:
+                CustomerRecordModel.objects.create(
+                    customer=customer,
+                    work_date=work_date,
+                    work_status=CustomerWorkStatusEnum.OFF
+                )
 
 def _create_work_sessions_from_pattern_common(
     *,
