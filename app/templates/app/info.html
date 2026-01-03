@@ -171,23 +171,21 @@
                                     {% endfor %}
                                     <!-- 備考を場所ごとの下に1行で表示 -->
                                     {% if info.place_id > 0 %}
-                                        {% if info.remarks %}
-                                            <tr>
-                                                <td colspan="2">
-                                                        <div class="mb-1">
-                                                            [備考]
-                                                            {{ info.remarks | linebreaksbr }}
-                                                        </div>
-                                                        <form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
-                                                            {% csrf_token %} 
-                                                            <button id="edit_place_remarks_btn-{{ info.place_id }}" class="btn-sm text-nowrap" type="submit" name="place_remarks_edit" value="{{ info.place_id }}"> 
-                                                                編集 
-                                                            </button>
-                                                        </form>
+                                        <tr>
+                                            <td colspan="2">
+                                                    <div class="mb-1">
+                                                        [備考]
+                                                        {{ info.remarks | linebreaksbr }}
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        {% endif %}    
+                                                    <form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
+                                                        {% csrf_token %} 
+                                                        <button id="edit_place_remarks_btn-{{ info.place_id }}" class="btn-sm text-nowrap" type="submit" name="place_remarks_edit" value="{{ info.place_id }}"> 
+                                                            編集 
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>    
                                     {% endif %}
                                 {% endwith %}
                             {% endif %}
