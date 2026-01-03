@@ -1,8 +1,8 @@
 from django.shortcuts import render, redirect,get_object_or_404
 from django.views.generic.base import TemplateView
-from .models import CustomerModel,CustomerRecordModel,StaffModel,CustomerWorkStatusPatternModel,StaffRecordModel, StaffSessionRecordModel,StaffWorkStatusPatternModel,CustomerSessionRecordModel,CustomerSessionPatternModel,TransportPatternModel,StaffSessionPatternModel,TransportRecordModel,WeekdayEnum, PlaceModel,TransportMeansEnum,TransportTypeEnum,StaffWorkStatusEnum, CustomerWorkStatusEnum,  WORK_SESSION_COUNT, PlaceRemarksModel
+from .models import CustomerModel,CustomerRecordModel,StaffModel,CustomerWorkStatusPatternModel,StaffRecordModel, StaffSessionRecordModel,StaffWorkStatusPatternModel,CustomerSessionRecordModel,CustomerSessionPatternModel,TransportPatternModel,StaffSessionPatternModel,TransportRecordModel,WeekdayEnum, PlaceModel,TransportMeansEnum,TransportTypeEnum,StaffWorkStatusEnum, CustomerWorkStatusEnum,  PlaceRemarksModel, OperationLogModel, WORK_SESSION_COUNT
 from .forms import CustomerWorkStatusPatternForm,PlaceRemarksForm,StaffForm,StaffRecordForm,CustomerForm,CustomerWorkStatusPatternForm,CustomerSessionPatternForm,CustomerSessionRecordForm,StaffSessionRecordForm,TransportPatternForm,TransportRecordForm,StaffSessionPatternForm,CustomerRecordForm,StaffWorkStatusPatternForm,CalendarForm,OutputForm
-from datetime import datetime
+import datetime
 from dateutil.relativedelta import relativedelta
 from django.http import HttpResponse
 from django.urls import reverse
@@ -10,15 +10,15 @@ import csv
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
 from django.db import transaction
-from collections import defaultdict
+from django.forms.models import model_to_dict
+from django.db import models
+from django.utils import timezone
 
 class IndexView(TemplateView):
     template_name = 'app/index.html'
 
 def info_today(request):
-    work_date = datetime.now().date()
-
-    return redirect('info', work_date)
+    return redirect('info', timezone.now().date())
 
 def info(request, work_date):
     # =========================
@@ -109,8 +109,13 @@ def _append_home_info(customer_records, info):
 
 def _append_off_info(staff_works, customer_records, info):
 
-    staff_list = _bulid_staff_list(staff_works, None, StaffWorkStatusEnum.OFF) # 有休も
+    staff_list = _bulid_staff_list(
+        staff_works, 
+        None, 
+        work_status=[StaffWorkStatusEnum.OFF, StaffWorkStatusEnum.OFF_WITH_PAY],
+        )
     customer_list = _build_customer_list(customer_records, None, CustomerWorkStatusEnum.OFF)
+
     staff_cusotmer_list = _build_staff_customer_list(staff_list, customer_list)
 
     info.append({
@@ -138,6 +143,14 @@ def _build_member_list(
     session_model,           
     extra_lines_builder=None # 追加表示（送迎など）
 ):
+    
+    if work_status is None:
+        work_status_set = None
+    elif isinstance(work_status, (list, tuple, set)):
+        work_status_set = set(work_status)
+    else:
+        work_status_set = {work_status}
+
     if not place:
         return [
             {
@@ -146,7 +159,11 @@ def _build_member_list(
                 'display': member.name,
             }
             for rcd in records
-            if (member := get_member(rcd)) and rcd.work_status == work_status
+            if (member := get_member(rcd))
+            and (
+                work_status_set is None
+                or rcd.work_status in work_status_set
+            )
         ]
 
     result = []
@@ -154,6 +171,9 @@ def _build_member_list(
     for rcd in records:
         member = get_member(rcd)
         if not member:
+            continue
+
+        if work_status_set is not None and rcd.work_status not in work_status_set:
             continue
 
         # 勤務セッション（place に一致するもの）
@@ -709,22 +729,43 @@ def _record_save_common(
 
     member = get_object_or_404(member_model, pk=member_id)
 
-    # record 保存
+    # 既存レコードを取得（なければ None）
+    record = record_model.objects.filter(
+        **{
+            member_field: member,
+            'work_date': work_date,
+        }
+    ).first()
+
+    # before = snapshot_for_log(record)
+    
     record_form = record_form_class(request.POST)
-    if record_form.is_valid():
-        record, created = record_model.objects.update_or_create(
-            **{
-                member_field: member,
-                'work_date': work_date,
-                'defaults': record_form.cleaned_data,
-            }
-        )
-    else:
+
+    if not record_form.is_valid():
         # 通常はここに来ない想定（来るならエラーハンドリング）
-        return redirect('info', work_date)
+        return redirect('info', work_date)        
+
+    # 既存レコードを更新
+    for field, value in record_form.cleaned_data.items():
+        setattr(record, field, value)
+    record.save()
+
+    # after = snapshot_for_log(record)
+
+    # diff = make_diff(before, after, record, MEMBER_RECORD_FIELD_MAP)
+
+    # if diff:            
+    #     log_operation(
+    #         user=request.user if request else None,
+    #         action='CREATE' if before is None else 'UPDATE',
+    #         target=record,
+    #         description=f'{work_date}の{member.name}の勤務情報を更新',
+    #         diff=diff,
+    #     )
 
     # 勤務セッション保存
     for i in range(WORK_SESSION_COUNT):
+
         session_form = session_form_class(
             request.POST,
             prefix=_session_index_prefix(i)
@@ -734,16 +775,36 @@ def _record_save_common(
             continue
 
         cd = session_form.cleaned_data
+        session_no = i + 1
 
-        session_model.objects.update_or_create(
+        # 既存セッション取得
+        session = session_model.objects.filter(
             record=record,
-            session_no=i + 1,
-            defaults={
-                'place': cd['place'],
-                'start_time': cd['start_time'],
-                'end_time': cd['end_time'],
-            }
-        )
+            session_no=session_no,
+        ).first()
+
+        # before = snapshot_for_log(session)
+
+        session.place = cd['place']
+        session.start_time = cd['start_time']
+        session.end_time = cd['end_time']
+        session.save()
+
+        # after = snapshot_for_log(session)
+
+        # diff = make_diff(before, after, session, SESSION_FIELD_MAP)
+
+        # if diff:
+        #     log_operation(
+        #         user=request.user,
+        #         action='UPDATE',
+        #         target=session,
+        #         description=(
+        #             f'{work_date}の{member.name}の'
+        #             f'勤務{session_no}を更新'
+        #         ),
+        #         diff=diff,
+        #     )            
 
     # 追加保存（送迎など）
     if extra_save_func:
@@ -1301,7 +1362,7 @@ def _save_transport_pattern(request, customer, day_value, transport_type):
 
 def output(request):
 
-    today = datetime.now().date()
+    today = timezone.now().date()
     first_day_of_last_month = (today.replace(day=1) - relativedelta(months=1))
     start_date = CalendarForm(initial_date=first_day_of_last_month)
     end_date = CalendarForm(initial_date=today)
@@ -1449,173 +1510,6 @@ def _output_member_records(
 
     return response
 
-
-# def _output_customer_records(start_date, end_date):
-#     records = (
-#         CustomerRecordModel.objects
-#         .filter(work_date__range=[start_date, end_date])
-#         .select_related('customer')
-#         .prefetch_related(
-#             'customer_session_record',  
-#             'record_transport',
-#         )
-#         .order_by('customer__order', 'work_date')
-#     )
-
-#     response = HttpResponse(content_type='text/csv')
-#     response['Content-Disposition'] = 'attachment; filename="customer.csv"'
-#     response.write('\ufeff')  # BOM
-
-#     writer = csv.writer(response)
-
-#     writer.writerow([
-#         '名前', '日付', '勤務種別',
-#         '勤務1(場所)', '勤務1(開始)', '勤務1(終了)',
-#         '勤務2(場所)', '勤務2(開始)', '勤務2(終了)',
-#         '勤務3(場所)', '勤務3(開始)', '勤務3(終了)',
-#         '送迎(朝)', '送迎場所(朝)', '送迎スタッフ(朝)', '送迎時間(朝)',
-#         '送迎(帰り)', '送迎場所(帰り)', '送迎スタッフ(帰り)', '送迎時間(帰り)',
-#     ])
-
-#     for record in records:
-#         row = []
-
-#         # --- CustomerModel ---
-#         row.append(record.customer.name if record.customer else '')
-
-#         # --- CustomerRecordModel ---
-#         row.append(record.work_date)
-#         row.append(record.get_work_status_display())
-
-#         # --- CustomerSessionRecordModel ---
-#         sessions = list(
-#             record.customer_session_record.all().order_by('session_no')
-#         )
-
-#         for i in range(WORK_SESSION_COUNT):
-#             if i < len(sessions):
-#                 s = sessions[i]
-#                 row.extend([
-#                     str(s.place) if s.place else '',
-#                     s.start_time.strftime('%H:%M') if s.start_time else '',
-#                     s.end_time.strftime('%H:%M') if s.end_time else '',
-#                 ])
-#             else:
-#                 row.extend(['', '', ''])
-
-#         # --- TransportRecordModel ---
-#         transports = {
-#             t.transport_type: t
-#             for t in record.record_transport.all()
-#         }
-
-#         def transport_cols(t):
-#             return [
-#                 t.get_transport_means_display(),
-#                 str(t.place) if t.place else '',
-#                 str(t.staff) if t.staff else '',
-#                 t.time.strftime('%H:%M') if t.time else '',
-#             ]
-
-#         morning = transports.get(TransportTypeEnum.MORNING)
-#         row.extend(transport_cols(morning) if morning else ['', '', '', ''])
-
-#         ret = transports.get(TransportTypeEnum.RETURN)
-#         row.extend(transport_cols(ret) if ret else ['', '', '', ''])
-
-#         writer.writerow(row)
-
-#     return response
-
-# def _output_staff_records(start_date, end_date):
-#     records = (
-#         StaffRecordModel.objects
-#         .filter(work_date__range=[start_date, end_date])
-#         .select_related('staff')
-#         .prefetch_related(
-#             'staff_session_record',  
-#         )
-#         .order_by('staff__order', 'work_date')
-#     )
-
-#     response = HttpResponse(content_type='text/csv')
-#     response['Content-Disposition'] = 'attachment; filename="staff.csv"'
-#     response.write('\ufeff')  # BOM
-
-#     writer = csv.writer(response)
-
-#     writer.writerow([
-#         '名前', '日付', '勤務種別',
-#         '勤務1(場所)', '勤務1(開始)', '勤務1(終了)',
-#         '勤務2(場所)', '勤務2(開始)', '勤務2(終了)',
-#         '勤務3(場所)', '勤務3(開始)', '勤務3(終了)',
-#     ])
-
-#     for record in records:
-#         row = []
-
-#         # --- StaffModel ---
-#         row.append(record.staff.name if record.staff else '')
-
-#         # --- StaffRecordModel ---
-#         row.append(record.work_date)
-#         row.append(record.get_work_status_display())
-
-#         # --- StaffSessionRecordModel ---
-#         sessions = list(
-#             record.staff_session_record.all().order_by('session_no')
-#         )
-
-#         for i in range(WORK_SESSION_COUNT):
-#             if i < len(sessions):
-#                 s = sessions[i]
-#                 row.extend([
-#                     str(s.place) if s.place else '',
-#                     s.start_time.strftime('%H:%M') if s.start_time else '',
-#                     s.end_time.strftime('%H:%M') if s.end_time else '',
-#                 ])
-#             else:
-#                 row.extend(['', '', ''])
-
-#         writer.writerow(row)
-
-#     return response
-
-# def _output_staff_records(start_date, end_date):
-#     queryset = StaffRecordModel.objects.filter(work_date__range=[start_date, end_date]).order_by('staff_id', 'work_date')
-
-#     response = HttpResponse(content_type='text/csv')
-#     response['Content-Disposition'] = 'attachment; filename="staff_work_data.csv"'
-
-#     response.write('\ufeff')
-
-#     writer = csv.writer(response)
-
-#     writer.writerow([
-#         'スタッフ名', '日付', '勤務種別',  
-#         '勤務1(開始時間)','勤務1(終了時間)','勤務1(場所)'
-#         '勤務2(開始時間)','勤務2(終了時間)','勤務2(場所)'
-#         '勤務3(開始時間)','勤務3(終了時間)','勤務3(場所)'
-#     ])
-
-#     for record in queryset:
-#         writer.writerow([
-#             record.staff.name,
-#             record.work_date,
-#             record.get_work_status_text(), 
-#             record.work1_start_time.strftime('%H:%M') if record.work1_start_time else '',
-#             record.work1_end_time.strftime('%H:%M') if record.work1_end_time else '',
-#             record.work1_place,
-#             record.work2_start_time.strftime('%H:%M') if record.work2_start_time else '',
-#             record.work2_end_time.strftime('%H:%M') if record.work2_end_time else '',
-#             record.work2_place,
-#             record.work3_start_time.strftime('%H:%M') if record.work3_start_time else '',
-#             record.work3_end_time.strftime('%H:%M') if record.work3_end_time else '',
-#             record.work3_place,
-#         ])
-
-#     return response
-
 def password_change(request):
     user = request.user  # ログイン中のユーザーを取得
     if request.method == 'POST':
@@ -1640,3 +1534,119 @@ MOVE_DOWN_FUNCS = {
     'staff': lambda pk: _move_order_down(StaffModel, pk),
     'customer': lambda pk: _move_order_down(CustomerModel, pk),
 }
+
+MEMBER_RECORD_FIELD_MAP = {
+    'work_date': '勤務日',
+    'work_status': '勤務種別',
+}
+
+SESSION_FIELD_MAP = {
+    'place': '場所',
+    'start_time': '開始時間',
+    'start_time': '終了時間',
+}
+
+def model_snapshot(instance):
+    """モデルインスタンスを dict に変換"""
+    if instance is None:
+        return {}
+    return model_to_dict(instance)
+
+def snapshot_for_log(instance):
+    raw = model_snapshot(instance)
+    result = {}
+
+    for field, value in raw.items():
+        result[field] = normalize_value(
+            value,
+            instance=instance,
+            field_name=field,
+        )
+
+    return result
+
+def make_diff(before, after, instance, field_map):
+    diff = {}
+
+    for field, after_value in after.items():
+        before_value = before.get(field)
+
+        if before_value == after_value:
+            continue
+
+        label = field_map.get(field, field)
+
+        diff[label] = {
+            'before': normalize_value(before_value, instance=instance, field_name=field),
+            'after':  normalize_value(after_value,  instance=instance, field_name=field),
+        }
+
+    return diff
+
+def normalize_value(value, *, instance=None, field_name=None):
+    if value is None:
+        return None
+
+    # datetime
+    if isinstance(value, datetime.datetime):
+        return value.strftime('%Y-%m-%d %H:%M:%S')
+
+    # date
+    if isinstance(value, datetime.date):
+        return value.strftime('%Y-%m-%d')
+
+    # time
+    if isinstance(value, datetime.time):
+        return value.strftime('%H:%M')
+
+    # ForeignKey（モデル）
+    if isinstance(value, models.Model):
+        return str(value)
+
+    # ChoiceField（IntegerChoicesなど）
+    if instance and field_name:
+        try:
+            field = instance._meta.get_field(field_name)
+            if field.choices:
+                return dict(field.choices).get(value, value)
+        except Exception:
+            pass
+
+    # JSONにそのまま出せる型
+    if isinstance(value, (int, float, str, bool)):
+        return value
+
+    # fallback（最後の砦）
+    return str(value)
+
+
+
+def log_operation(
+    *,
+    user=None,
+    action,
+    target=None,       # モデルインスタンス
+    description='',
+    diff=None,
+):
+    """
+    操作ログを作成
+    """
+    if target is not None:
+        try:
+            target_model = target.__class__.__name__
+            target_id = target.pk
+        except AttributeError:
+            raise ValueError("target には必ずモデルのインスタンスを渡してください")
+    else:
+        target_model = ''
+        target_id = None
+
+    OperationLogModel.objects.create(
+        user=user,
+        action=action,
+        target_model=target_model,
+        target_id=target_id,
+        description=description,
+        diff=diff,
+    )

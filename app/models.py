@@ -1,7 +1,6 @@
 # models.py
 from django.db import models
-from enum import Enum
-from django.contrib.auth.models import User
+from django.conf import settings
 
 WORK_SESSION_COUNT = 3
 
@@ -66,6 +65,10 @@ class StaffModel(models.Model):
             max_order = StaffModel.objects.aggregate(models.Max('order'))['order__max']
             self.order = max_order + 1 if max_order is not None else 1
         super().save(*args, **kwargs)
+
+    @property
+    def display_name(self):
+        return "スタッフ"
 
     class Meta:
         ordering = ['order']
@@ -388,23 +391,30 @@ class PlaceRemarksModel(models.Model):
     def __str__(self):
         return f'{self.place} - {self.work_date}'
     
-class LogModel(models.Model):
-    dateTime = models.DateTimeField(auto_now_add=True)
-
+class OperationLogModel(models.Model):
     user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="logs"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
     )
 
-    text = models.CharField(
-        max_length=255,
+    action = models.CharField(max_length=50)
+
+    target_model = models.CharField(max_length=50, blank=True)
+    target_id = models.IntegerField(null=True, blank=True)
+
+    description = models.TextField(blank=True)
+
+    diff = models.JSONField(
+        null=True,
         blank=True,
-        default=""
+        help_text='更新前後の差分'
     )
 
-    def __str__(self):
-        return f'{self.dateTime} - {self.user.username} - {self.text}'
+    created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ['-created_at']
 
 
