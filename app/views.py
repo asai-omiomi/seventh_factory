@@ -439,31 +439,12 @@ def _build_customer_extra_lines(rcd):
                 text += f" {transport.staff}"
             if transport.place:
                 text += f" {transport.place}"
-            if transport.time:
-                text += f" {transport.time.strftime('%H:%M')}"
+            if transport.remarks:
+                text += f" {transport.remarks}"
 
         lines.append(text)
 
     return lines
-
-# def _bulid_staff_list(staff_records, place, work_status=None):
-#     return _build_member_list(
-#         records=staff_records,
-#         place=place,
-#         work_status=work_status,
-#         get_member=lambda rcd: rcd.staff,
-#         session_model=StaffSessionRecordModel,
-#     ) 
-
-# def _build_customer_list(customer_records, place, work_status=None):
-#     return _build_member_list(
-#         records=customer_records,
-#         place=place,
-#         work_status=work_status,
-#         get_member=lambda rcd: rcd.customer,
-#         session_model=CustomerSessionRecordModel,
-#         extra_lines_builder=_build_customer_extra_lines,
-#     )
     
 def _build_remarks(place=None, work_date=None):
     if not place:
@@ -530,8 +511,8 @@ def _build_transport_table_rows(work_date):
 def _format_transport(t):
     parts = [
         t.customer.name,
-        t.time.strftime('%H:%M') if t.time else '',
         t.place or '',
+        t.remarks,
     ]
     return ' '.join(p for p in parts if p)
 
@@ -666,7 +647,7 @@ def _create_transports_from_pattern(customer_record, transport_type):
                 'transport_means': pattern.transport_means,
                 'place': pattern.place,
                 'staff': pattern.staff,
-                'time': pattern.time,
+                'remarks': pattern.remarks,
             }
         )    
 def _create_records_from_pattern_common(
@@ -1050,7 +1031,7 @@ def _save_transport_record(request, record, transport_type):
             'transport_means': cd['transport_means'],
             'place': cd['place'],
             'staff': cd['staff'],
-            'time': cd['time'],
+            'remarks': cd['remarks'],
         }
     )
 
@@ -1566,7 +1547,7 @@ def _save_transport_pattern(request, customer, day_value, transport_type):
             'transport_means': cd['transport_means'],
             'place': cd['place'],
             'staff': cd['staff'],
-            'time': cd['time'],
+            'remarks': cd['remarks'],
         }
     )
 
@@ -1659,8 +1640,8 @@ def _output_member_records(
 
     if include_transport:
         header.extend([
-            '送迎(朝)', '送迎場所(朝)', '送迎スタッフ(朝)', '送迎時間(朝)',
-            '送迎(帰り)', '送迎場所(帰り)', '送迎スタッフ(帰り)', '送迎時間(帰り)',
+            '送迎(朝)', '送迎場所(朝)', '送迎スタッフ(朝)', '備考(朝)',
+            '送迎(帰り)', '送迎場所(帰り)', '送迎スタッフ(帰り)', '備考(帰り)',
         ])
 
     writer.writerow(header)
@@ -1703,7 +1684,7 @@ def _output_member_records(
                     t.get_transport_means_display(),
                     str(t.place) if t.place else '',
                     str(t.staff) if t.staff else '',
-                    t.time.strftime('%H:%M') if t.time else '',
+                    t.remarks,
                 ]
 
             row.extend(

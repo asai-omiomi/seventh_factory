@@ -238,7 +238,8 @@ class BaseTransport(models.Model):
         null=True,
     )
 
-    time = models.TimeField(
+    remarks = models.CharField(
+        max_length=20,
         blank=True,
         null=True,
     )

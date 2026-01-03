@@ -90,7 +90,7 @@ TRANSPORT_COMMON_FIELDS = [
     'transport_means',
     'place',
     'staff',
-    'time',
+    'remarks',
 ]
 
 class BaseTransportFormMixin:
@@ -98,10 +98,8 @@ class BaseTransportFormMixin:
     def __init__(self, *args, transport_type: TransportTypeEnum = None, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if 'time' in self.fields:
-            self.fields['time'].widget = forms.TimeInput(
-                attrs={'type': 'time'}
-            )
+        if 'remarks' in self.fields:
+            self.fields['remarks'].widget = forms.TextInput()
 
         if transport_type is None:
             return
@@ -121,7 +119,7 @@ class BaseTransportFormMixin:
             self.fields['transport_means'].widget.attrs['class'] += f' {type_class}'
 
         # 関連フィールド
-        for name in ['place', 'staff', 'time']:
+        for name in ['place', 'staff', 'remarks']:
             if name in self.fields:
                 self.fields[name].widget.attrs.setdefault('class', '')
                 self.fields[name].widget.attrs['class'] += f' {type_class}-fields'
