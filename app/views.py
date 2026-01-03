@@ -104,7 +104,7 @@ def _update_session_current_status(
         for session in sessions:
             # prev_status = session.current_status
             session.current_status = new_status
-            # session.save()
+            session.save()
             
             # log_operation(
             #     user=request.user,

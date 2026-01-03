@@ -12,7 +12,7 @@ urlpatterns = [
     path('info_today/', views.info_today, name='info_today'),  
     path('info/<str:work_date>/', views.info, name='info'),    
     path('info_dispatch/<str:work_date>/', views.info_dispatch, name='info_dispatch'),
-
+    
     path('place_remarks/<int:place_id>/<str:work_date>/edit', views.place_remarks_edit, name='place_remarks_edit'),  
     path('place_remarks/<int:place_id>/<str:work_date>/save', views.place_remarks_save, name='place_remarks_save'),  
 
@@ -32,11 +32,11 @@ urlpatterns = [
     path('customer/<int:customer_id>/<str:work_date>/edit', views.customer_record_edit, name='customer_record_edit'),
     path('customer/<int:customer_id>/<str:work_date>/save', views.customer_record_save, name='customer_record_save'),
 
+
+
     path('output/', views.output, name='output'),      
     path('output/execute', views.output_execute, name='output_execute'),  
 
     path('password_change/', views.password_change, name='password_change'),  
-    path('password_change/done/', auth_views.PasswordChangeDoneView.as_view(template_name='app/password_change_done.html'), name='password_change_done'), 
-
-    path('history/', views.history, name='history'),  
+    path('password_change/done/', auth_views.PasswordChangeDoneView.as_view(template_name='app/password_change_done.html'), name='password_change_done'),  
 ]

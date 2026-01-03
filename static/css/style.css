@@ -13,7 +13,7 @@ select {
   appearance: none;
   color: #000;
   font-family: "ヒラギノ角ゴシック";
-  font-size: 16px;
+  font-size: 16px !important;
   font-weight: unset !important;
 }
 
@@ -23,8 +23,8 @@ select {
   background: #efefef;
   border: 1px solid #333;
   border-radius: 4px;
-  padding: 4px 8px;
-  line-height: 1.5rem;
+  padding: 4px 8px !important;
+  line-height: 1.5rem !important;
 }
 
 /* disabled状態のスタイル */
@@ -46,6 +46,10 @@ select {
   background: #fff url(data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%206l5%205%205-5%202%201-7%207-7-7%202-1z%22%20fill%3D%22%23555%22%2F%3E%3C%2Fsvg%3E) no-repeat right 5px top 55%;
   background-size: 16px 16px;
   cursor: pointer;
+}
+
+.nav-tabs>.nav-item>.nav-link {
+    padding: 10px !important;
 }
 
 .nav-link-custom{
