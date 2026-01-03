@@ -59,11 +59,15 @@ function setupToggleWorkStatusControl() {
 }
 
 function _toggleTransferDetails(type, className) {
-    const select = document.querySelector(`.${type}`);
-    if (!select) return;
+    const elements = document.querySelectorAll(`.${type}`);
 
-    const show = select.value == TRANSFER_VALUE;
-    toggleFieldsByName(`.${className}`, show);
+    elements.forEach(el => {
+        const show = el.value == TRANSFER_VALUE;
+        const parent = el.closest('.transport-fields'); // 親要素を基準に
+        if (parent) {
+            toggleFieldsByName(`.${className}`, show, parent);
+        }
+    });
 }
 
 // 初期化とイベント設定
@@ -71,16 +75,42 @@ function setupTransportControl() {
     document.addEventListener('DOMContentLoaded', () => {
         ['morning', 'return'].forEach(type => {
             const className = type === 'morning' ? 'morning_transfer_details' : 'return_transfer_details';
-            const select = document.querySelector(`.${type}`);
-            if (!select) return;
 
-            select.addEventListener('change', () => _toggleTransferDetails(type, className));
+            // 複数の select に対応
+            const elements = document.querySelectorAll(`.${type}`);
+            elements.forEach(el => {
+                el.addEventListener('change', () => _toggleTransferDetails(type, className));
 
-            // 初期表示の設定
-            _toggleTransferDetails(type, className);
+                // 初期表示の設定
+                _toggleTransferDetails(type, className);
+            });
         });
     });
 }
+
+// function _toggleTransferDetails(type, className) {
+//     const select = document.querySelector(`.${type}`);
+//     if (!select) return;
+
+//     const show = select.value == TRANSFER_VALUE;
+//     toggleFieldsByName(`.${className}`, show);
+// }
+
+// // 初期化とイベント設定
+// function setupTransportControl() {
+//     document.addEventListener('DOMContentLoaded', () => {
+//         ['morning', 'return'].forEach(type => {
+//             const className = type === 'morning' ? 'morning_transfer_details' : 'return_transfer_details';
+//             const select = document.querySelector(`.${type}`);
+//             if (!select) return;
+
+//             select.addEventListener('change', () => _toggleTransferDetails(type, className));
+
+//             // 初期表示の設定
+//             _toggleTransferDetails(type, className);
+//         });
+//     });
+// }
 
 // バリデーション
 function validateForm(event) {
@@ -167,7 +197,6 @@ function setupCopyControl() {
                     return;
                 }
 
-                // copyFormValues(sourceTab, targetTab);
                 const sourceFields = sourceTab.querySelectorAll('input, select, textarea');
 
                 sourceFields.forEach(src => {

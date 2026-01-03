@@ -1,7 +1,7 @@
-<div class="toggle-fields mt-3 mb-3">
+<div class="toggle-fields transport-fields mt-3 mb-3">
     <div>
         <label for="{{ form.transport_means.id_for_label }}">
-            {{ label }}
+            {{ label }}：
         </label>
         {{ form.transport_means }}
     </div>
@@ -9,19 +9,19 @@
     <div class="{{ details_class }}">
         <div>
             <label class="transfer_label"
-                   for="{{ form.place.id_for_label }}">場所：</label>
+                for="{{ form.place.id_for_label }}">場所：</label>
             {{ form.place }}
         </div>
 
         <div>
             <label class="transfer_label"
-                   for="{{ form.staff.id_for_label }}">送迎スタッフ：</label>
+                for="{{ form.staff.id_for_label }}">送迎スタッフ：</label>
             {{ form.staff }}
         </div>
 
         <div>
             <label class="transfer_label"
-                   for="{{ form.remarks.id_for_label }}">備考：</label>
+                for="{{ form.remarks.id_for_label }}">備考：</label>
             {{ form.remarks }}
         </div>
     </div>
