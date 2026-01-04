@@ -51,66 +51,107 @@ class WeekdayEnum(models.IntegerChoices):
     SAT = 6, '土'
     SUN = 7, '日'
 
-    
-class StaffModel(models.Model):
+from django.db import models
+
+class BaseMemberModel(models.Model):
     name = models.CharField(
-        max_length=20, 
+        max_length=20,
         blank=False,
         null=False,
         default=''
     )
-    
+
     order = models.IntegerField(
-        blank=False, 
+        blank=False,
         null=False,
     )
 
-    def __str__(self):
-        return self.name
-    
-    def save(self, *args, **kwargs):
-        if not self.pk:  # 新規作成時
-            max_order = StaffModel.objects.aggregate(models.Max('order'))['order__max']
-            self.order = max_order + 1 if max_order is not None else 1
-        super().save(*args, **kwargs)
-
-    @property
-    def display_name(self):
-        return "スタッフ"
-
     class Meta:
+        abstract = True
         ordering = ['order']
 
-class StaffRecordModel(models.Model):
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            max_order = (
+                self.__class__
+                .objects
+                .aggregate(models.Max('order'))
+                ['order__max']
+            )
+            self.order = max_order + 1 if max_order is not None else 1
+
+        super().save(*args, **kwargs)
+
+class StaffModel(BaseMemberModel):
+    pass
+
+class CustomerModel(BaseMemberModel):
+    pass
+
+class BaseRecordModel(models.Model):
+    work_date = models.DateField()
+
+    change_history = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        default=''
+    )
+
     class Meta:
-        unique_together = ('staff', 'work_date')
-        ordering = ['staff__order']
-        
+        abstract = True
+
+    def __str__(self):
+        target = getattr(self, 'staff', None) or getattr(self, 'customer', None)
+        return f'{target} - {self.work_date}'
+
+class StaffRecordModel(BaseRecordModel):
     staff = models.ForeignKey(
         StaffModel,
         on_delete=models.CASCADE,
-        null = True,
+        null=True,
         blank=True,
-        related_name='staff_record'
+        related_name='staff_records'
     )
-
-    work_date = models.DateField()
 
     work_status = models.IntegerField(
         choices=StaffWorkStatusEnum.choices,
         default=StaffWorkStatusEnum.OFF
     )
 
-    def __str__(self):
-        return f'{self.staff.name if self.staff else ""} - {self.work_date}'
-    
     class Meta:
+        ordering = ['staff__order']
         constraints = [
             models.UniqueConstraint(
                 fields=['staff', 'work_date'],
                 name='unique_staff_work_date'
             )
-        ]   
+        ]
+
+class CustomerRecordModel(BaseRecordModel):
+    customer = models.ForeignKey(
+        CustomerModel,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='customer_records'
+    )
+
+    work_status = models.IntegerField(
+        choices=CustomerWorkStatusEnum.choices,
+        default=CustomerWorkStatusEnum.OFF
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['customer', 'work_date'],
+                name='unique_customer_work_date'
+            )
+        ] 
     
 class StaffWorkStatusPatternModel(models.Model):
     staff = models.ForeignKey(
@@ -133,60 +174,7 @@ class StaffWorkStatusPatternModel(models.Model):
 
     def __str__(self):
         return f'{self.staff.name} - {self.get_weekday_display()}'
-
-class CustomerModel(models.Model):
-    name = models.CharField(
-        max_length=20, 
-        blank=False,
-        null=False,
-        default=''
-     )
     
-    order = models.IntegerField(
-        blank=False, 
-        null=False,
-    )
-    
-    def __str__(self):
-        return self.name
-    
-    def save(self, *args, **kwargs):
-        if not self.pk:  # 新規作成時
-            max_order = CustomerModel.objects.aggregate(models.Max('order'))['order__max']
-            self.order = max_order + 1 if max_order is not None else 1
-        super().save(*args, **kwargs)
-
-    class Meta:
-        ordering = ['order']
-
-class CustomerRecordModel(models.Model):
-        
-    customer = models.ForeignKey(
-        CustomerModel,
-        on_delete=models.SET_NULL,
-        null = True,
-        blank=True,
-        related_name='customer_record'
-    )
-
-    work_date = models.DateField()
-
-    work_status = models.IntegerField(
-        choices=CustomerWorkStatusEnum.choices,
-        default=CustomerWorkStatusEnum.OFF
-    )
-
-    def __str__(self):
-        return f'{self.customer} - {self.work_date}'
-    
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['customer', 'work_date'],
-                name='unique_customer_work_date'
-            )
-        ]
-
 class CustomerWorkStatusPatternModel(models.Model):
     customer = models.ForeignKey(
         CustomerModel,
@@ -209,7 +197,7 @@ class CustomerWorkStatusPatternModel(models.Model):
     def __str__(self):
         return f'{self.customer.name} - {self.get_weekday_display()}'
     
-class BaseTransport(models.Model):
+class BaseTransportModel(models.Model):
     customer = models.ForeignKey(
         CustomerModel,
         on_delete=models.CASCADE,
@@ -247,7 +235,7 @@ class BaseTransport(models.Model):
     class Meta:
         abstract = True
 
-class TransportPatternModel(BaseTransport):
+class TransportPatternModel(BaseTransportModel):
 
     weekday = models.IntegerField(
         choices=WeekdayEnum.choices
@@ -260,7 +248,7 @@ class TransportPatternModel(BaseTransport):
     def __str__(self):
         return f'{self.customer} {self.get_weekday_display()} {self.transport_type}'
 
-class TransportRecordModel(BaseTransport):
+class TransportRecordModel(BaseTransportModel):
     record = models.ForeignKey(
         'CustomerRecordModel',
         on_delete=models.CASCADE,
@@ -273,7 +261,7 @@ class TransportRecordModel(BaseTransport):
     def __str__(self):
         return f'{self.record} - {self.get_transport_type_display()}'
 
-class BaseSession(models.Model):
+class BaseSessionModel(models.Model):
     session_no = models.PositiveSmallIntegerField(null=False,default=1)
     place = models.ForeignKey(
         'PlaceModel',
@@ -287,7 +275,7 @@ class BaseSession(models.Model):
     class Meta:
         abstract = True  # DB テーブルは作らない
 
-class StaffSessionPatternModel(BaseSession):
+class StaffSessionPatternModel(BaseSessionModel):
 
     staff = models.ForeignKey(
         'StaffModel',
@@ -309,7 +297,7 @@ class StaffSessionPatternModel(BaseSession):
     def __str__(self):
         return f'{self.staff} - {self.get_weekday_display()} - 勤務{self.session_no}'
     
-class CustomerSessionPatternModel(BaseSession):
+class CustomerSessionPatternModel(BaseSessionModel):
 
     customer = models.ForeignKey(
         'CustomerModel',
@@ -331,7 +319,7 @@ class CustomerSessionPatternModel(BaseSession):
     def __str__(self):
         return f'{self.customer} - {self.get_weekday_display()} - 勤務{self.session_no}'
 
-class StaffSessionRecordModel(BaseSession):
+class StaffSessionRecordModel(BaseSessionModel):
 
     record = models.ForeignKey(
         StaffRecordModel,
@@ -351,7 +339,7 @@ class StaffSessionRecordModel(BaseSession):
     def __str__(self):
         return f'{self.record} - 勤務{self.session_no}'
     
-class CustomerSessionRecordModel(BaseSession):
+class CustomerSessionRecordModel(BaseSessionModel):
 
     record = models.ForeignKey(
         CustomerRecordModel,

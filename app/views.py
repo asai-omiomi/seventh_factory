@@ -216,6 +216,7 @@ def _build_member_list_without_place(
                     'id': member.id,
                     'name': member.name,
                     'display': "",
+                    'change_history':rcd.change_history,
                 })
 
     return result
@@ -351,6 +352,7 @@ def _build_member_list_by_work_status(
                 'id': member.id,
                 'name': member.name,
                 'display': display_name,
+                'change_history':rcd.change_history,
             })
 
     return result
@@ -400,6 +402,7 @@ def _build_member_list_by_place(
             'current_status': first_session.current_status,
             'current_status_text': first_session.get_current_status_display(),
             'current_status_btn_class': _status_btn_class(first_session.current_status),
+            'change_history':rcd.change_history,
         })
 
     return result
