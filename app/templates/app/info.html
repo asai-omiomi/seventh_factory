@@ -65,12 +65,6 @@
                     送迎情報
                 </button>
             </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="log-tab" data-bs-toggle="tab" data-bs-target="#log-info"
-                    type="button" role="tab">
-                    操作履歴
-                </button>
-            </li>
         </ul>
         {% else %}
         <div>
@@ -126,12 +120,12 @@
                     <tr>
                         <td>
                             {% if staff %}
-                            {% include "app/partials/member_cell.html" with member=staff role="staff" %}
+                            {% include "app/partials/member_cell.html" with member=staff member_type="staff" current_status_choices=current_status_staff_choices %}
                             {% endif %}
                         </td>
                         <td>
                             {% if customer %}
-                            {% include "app/partials/member_cell.html" with member=customer role="customer" %}
+                            {% include "app/partials/member_cell.html" with member=customer member_type="customer" current_status_choices=current_status_customer_choices %}
                             {% endif %}
                         </td>
                     </tr>
@@ -186,23 +180,7 @@
                 </table>
             </div>
         </div>
-        <!-- 操作履歴 -->
-        <div class="tab-pane fade " id="log-info" role="tabpanel">
-            開発中です。
-        </div>
     </div>
-
-    {% for info in info %}
-    {% for staff, customer in info.staff_cusotmer_list %}
-    {% if staff %}
-    {% include "app/partials/current_status_modal.html" with member=staff member_type="staff" current_status_choices=current_status_staff_choices place_id=info.place_id %}
-    {% endif %}
-    {% if customer %}
-    {% include "app/partials/current_status_modal.html" with member=customer member_type="customer" current_status_choices=current_status_customer_choices place_id=info.place_id %}
-    {% endif %}
-    {% endfor %}
-    {% endfor %}
-
     {% endif %}
 
 </div>

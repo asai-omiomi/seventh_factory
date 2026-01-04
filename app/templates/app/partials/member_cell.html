@@ -5,15 +5,17 @@
     {{ member.name }}
   </div>
 
-  <button type="button"
-          class="icon-button"
-          data-bs-toggle="modal"
-          data-bs-target="#updateModal{{ member.id }}"
-          aria-label="更新情報を表示">
-    <img src="{% static 'images/eye.svg' %}"
-         alt=""
-         class="eye_icon_img">
-  </button>
+    <button type="button"
+            class="icon-button"
+            data-bs-toggle="modal"
+            data-bs-target="#historyModal-{{ member.id }}"
+            aria-label="更新情報を表示">
+        <img src="{% static 'images/eye.svg' %}"
+            alt=""
+            class="eye_icon_img">
+    </button>
+    {% include "app/partials/history_modal.html" with member=member member_type="member_type" %}
+        
 </div>
 
 {{ member.display | linebreaksbr }}
@@ -22,23 +24,24 @@
   <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
     {% csrf_token %}
     <div class="d-flex gap-1">
-      {% if info.place_id > 0 %}
-      <button type="button"
-              id="{{ role }}_current_status_edit-{{ member.id }}"
-              class="btn btn-sm {{ member.current_status_btn_class }}"
-              data-bs-toggle="modal"
-              data-bs-target="#statusModal-{{ member.id }}">
-        {{ member.current_status_text }}
-      </button>
-      {% endif %}
+        {% if info.place_id > 0 %}
+        <button type="button"
+                id="{{ member_type }}_current_status_edit-{{ member.id }}"
+                class="btn btn-sm {{ member.current_status_btn_class }}"
+                data-bs-toggle="modal"
+                data-bs-target="#statusModal-{{ member.id }}">
+            {{ member.current_status_text }}
+        </button>
+        {% include "app/partials/current_status_modal.html" with member=member member_type=member_type current_status_choices=current_status_choices place_id=info.place_id %}
+        {% endif %}
 
-      <button id="{{ role }}_record_edit_btn-{{ member.id }}"
-              class="btn-sm text-nowrap"
-              type="submit"
-              name="{{ role }}_record_edit"
-              value="{{ member.id }}">
-        編集
-      </button>
+        <button id="{{ member_type }}_record_edit_btn-{{ member.id }}"
+                class="btn-sm text-nowrap"
+                type="submit"
+                name="{{ member_type }}_record_edit"
+                value="{{ member.id }}">
+            編集
+        </button>
     </div>
   </form>
 </div>
