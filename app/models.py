@@ -95,7 +95,7 @@ class BaseRecordModel(models.Model):
     work_date = models.DateField()
 
     change_history = models.CharField(
-        max_length=200,
+        max_length=2000,
         blank=True,
         null=True,
         default=''
@@ -111,7 +111,7 @@ class BaseRecordModel(models.Model):
 class StaffRecordModel(BaseRecordModel):
     staff = models.ForeignKey(
         StaffModel,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='staff_records'
@@ -134,7 +134,7 @@ class StaffRecordModel(BaseRecordModel):
 class CustomerRecordModel(BaseRecordModel):
     customer = models.ForeignKey(
         CustomerModel,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='customer_records'

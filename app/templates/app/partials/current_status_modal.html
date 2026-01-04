@@ -1,44 +1,35 @@
-<div class="modal fade" id="statusModal-{{ member.id }}" tabindex="-1">
+<div class="modal fade" id="statusModal-{{ member_type }}-{{ member.id }}" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          勤務ステータスの変更（{{ member.name }}）
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
 
-      <form method="post">
+      <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
         {% csrf_token %}
-        
-        <div class="modal-header">
-          <h5 class="modal-title">
-            勤務ステータスの変更（{{ member.name }}）
-          </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-
         <div class="modal-body">
           {% for value, label in current_status_choices %}
-            <div class="form-check mt-2">
-              <label class="form-check-label radio-large">
-                <input
-                  type="radio"
-                  name="current_status"
-                  value="{{ value }}"
-                  {% if value == member.current_status %}checked{% endif %}>
-                {{ label }}
-              </label>
-            </div>
+          <div class="form-check mt-2">
+            <label class="form-check-label radio-large">
+              <input type="radio" name="current_status" value="{{ value }}" {% if value == member.current_status %} checked {% endif %}>
+              {{ label }}
+            </label>
+          </div>
           {% endfor %}
         </div>
 
         <div class="modal-footer">
-          <button
-            type="submit"
-            class="btn btn-primary"
-            name="edit_current_status"
-            value="{{ member.id }}">
+          <button type="submit" class="btn btn-primary" name="current_status_edit" value="{{ member.id }}">
             変更
           </button>
-            <input type="hidden" name="member_id" value="{{ member.id }}">
-            <input type="hidden" name="place_id" value="{{ place_id }}">
-            <input type="hidden" name="member_type" value="{{ member_type }}">
-            <input type="hidden" name="work_date" value="{{ work_date }}">
+          <input type="hidden" name="member_id" value="{{ member.id }}">
+          <input type="hidden" name="place_id" value="{{ place_id }}">
+          <input type="hidden" name="member_type" value="{{ member_type }}">
+          <input type="hidden" name="work_date" value="{{ work_date }}">
+          <input type="hidden" name="prev_status" value="{{ member.current_status }}">
         </div>
       </form>
     </div>

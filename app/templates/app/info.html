@@ -14,9 +14,8 @@
 </style>
 
 <script>
+    // スクロール位置の復元 
     document.addEventListener("DOMContentLoaded", function () {
-
-        // スクロール位置の復元 
         const scrollToElementId = sessionStorage.getItem("scrollToElement"); 
         
         if (scrollToElementId) {
@@ -29,10 +28,9 @@
             sessionStorage.removeItem("scrollToElement"); 
         }
 
-        // 編集ボタン全般に共通の処理
-        document.querySelectorAll("button[name$='_edit']").forEach(button => {
+        // 対象のボタンに対して
+        document.querySelectorAll("button.scroll-save").forEach(button => {
             button.addEventListener("click", function () {
-                // ボタンのIDを sessionStorage に保存
                 sessionStorage.setItem("scrollToElement", this.id);
             });
         });

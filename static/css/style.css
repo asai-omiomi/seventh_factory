@@ -2,7 +2,7 @@ h1{
   font-size: 2rem;
 }
 
-input[type="button"], button, select{
+input[type="button"], button, .my_button, select{
   cursor: pointer;
   outline: none;
   appearance: none;
@@ -14,7 +14,7 @@ input[type="button"], button, select{
 }
 
 
-input[type="button"], button {
+input[type="button"], button, .my_button {
   background: #efefef;
   border: 1px solid #333;
   padding: 4px 8px;

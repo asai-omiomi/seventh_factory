@@ -19,26 +19,9 @@ class IndexView(TemplateView):
     template_name = 'app/index.html'
 
 def info_today(request):
-    return redirect('info', timezone.now().date())
+    return redirect('info', timezone.localtime().date())
 
 def info(request, work_date):
-    # =========================
-    # POST：勤務状態の更新
-    # =========================
-    if request.method == "POST" and "edit_current_status" in request.POST:
-        _update_session_current_status(
-            request,
-            member_type=request.POST["member_type"],
-            member_id=int(request.POST["member_id"]),
-            work_date=request.POST["work_date"],
-            place_id=int(request.POST["place_id"]),
-            new_status=int(request.POST["current_status"]),
-        )
-
-        return redirect("info", work_date=request.POST["work_date"])
-    # =========================
-    # GET：通常の表示
-    # =========================
     calendar_form = CalendarForm(initial_date=work_date)
 
     # 全体情報
@@ -63,6 +46,7 @@ def _update_session_current_status(
     member_id,
     work_date,
     place_id,
+    prev_status,
     new_status,
 ):
     if member_type == "staff":
@@ -78,6 +62,9 @@ def _update_session_current_status(
         }
         initial_status = CurrentStatusStaffEnum.BEFORE
 
+        prev_status_label = CurrentStatusStaffEnum(prev_status).label
+        new_status_label = CurrentStatusStaffEnum(new_status).label
+
     elif member_type == "customer":
         record = CustomerRecordModel.objects.get(
             customer_id=member_id,
@@ -92,9 +79,12 @@ def _update_session_current_status(
         }
         initial_status = CurrentStatusCustomerEnum.BEFORE
 
+        prev_status_label = CurrentStatusCustomerEnum(prev_status).label
+        new_status_label = CurrentStatusCustomerEnum(new_status).label
+
     else:
         raise ValueError("invalid member_type")
-
+    
     if new_status not in special_statuses:
         # 通常の更新：current_status のみ
         sessions = session_model.objects.filter(
@@ -103,20 +93,9 @@ def _update_session_current_status(
         )
 
         for session in sessions:
-            # prev_status = session.current_status
+            prev_status = session.current_status
             session.current_status = new_status
             session.save()
-            
-            # log_operation(
-            #     user=request.user,
-            #     action='UPDATE',
-            #     target=session,
-            #     description=(
-            #         f'[{work_date}][{member_name}]'
-            #         f'[{session.place.name}][勤務ステータス変更]'
-            #         f'【{prev_status}→{new_status}】'
-            #     ),
-            # )     
 
     else:
         # 在宅・休みの場合:全セッションを初期化
@@ -134,8 +113,15 @@ def _update_session_current_status(
         # recordModel の work_status を更新
         record.work_status = record_status_mapping[new_status]
         record.save()
-       
 
+    # 変更履歴を保存
+    if new_status != prev_status:
+        place = PlaceModel.objects.filter(pk=place_id).first()
+        now = timezone.localtime().strftime("%m/%d %H:%M:%S")
+        history_text = f'[{now}]{request.user.last_name}が{member_name}({place.name})の勤務状態を変更[{prev_status_label}→{new_status_label}]\n'
+        record.change_history = history_text + record.change_history
+        record.save()
+    
 def _build_info(work_date):
 
     staff_records = StaffRecordModel.objects.filter(work_date=work_date).order_by('staff__order')
@@ -345,6 +331,7 @@ def _build_member_list_by_work_status(
             continue
 
         if work_status_set is not None and rcd.work_status in work_status_set:
+            display_name =""
             if hasattr(rcd, 'work_status') and rcd.work_status == StaffWorkStatusEnum.OFF_WITH_PAY:
                 display_name = "有給"
 
@@ -529,6 +516,7 @@ def info_dispatch(request, work_date):
     staff_record_edit = request.POST.get('staff_record_edit')
     create_records = request.POST.get('create_records')
     create_records_off_day = request.POST.get('create_records_off_day')
+    current_status_edit = request.POST.get('current_status_edit')
    
     if change_date:
         work_date = request.POST.get('date')
@@ -550,9 +538,24 @@ def info_dispatch(request, work_date):
     elif staff_record_edit:
         staff_id = staff_record_edit
         return redirect('staff_record_edit', 
-            staff_id=staff_id, work_date=work_date)   
+            staff_id=staff_id, work_date=work_date)  
+    elif current_status_edit:
+        _current_status_edit(request)
+        return redirect('info', work_date=work_date)
     
     return redirect('info', work_date)     
+
+
+def _current_status_edit(request):
+    _update_session_current_status(
+        request,
+        member_type=request.POST["member_type"],
+        member_id=int(request.POST["member_id"]),
+        work_date=request.POST["work_date"],
+        place_id=int(request.POST["place_id"]),
+        prev_status=int(request.POST["prev_status"]),
+        new_status=int(request.POST["current_status"]),
+    )
 
 def _create_records(work_date):
 
