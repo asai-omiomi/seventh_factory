@@ -84,3 +84,15 @@ input[type="text"], input[type="password"]{
   max-width: 800px;
   margin: auto;
 }
+
+.icon-button {
+  background: none;
+  border: none;
+  padding: 5px 3px 3px 3px;
+  cursor: pointer;
+}
+
+.eye_icon_img{
+  width: 24px;
+  height: 24px;
+}

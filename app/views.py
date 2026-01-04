@@ -215,7 +215,7 @@ def _build_member_list_without_place(
                 result.append({
                     'id': member.id,
                     'name': member.name,
-                    'display': member.name,
+                    'display': "",
                 })
 
     return result
@@ -344,9 +344,8 @@ def _build_member_list_by_work_status(
             continue
 
         if work_status_set is not None and rcd.work_status in work_status_set:
-            display_name = member.name
             if hasattr(rcd, 'work_status') and rcd.work_status == StaffWorkStatusEnum.OFF_WITH_PAY:
-                display_name += "(有給)"
+                display_name = "有給"
 
             result.append({
                 'id': member.id,
@@ -380,7 +379,7 @@ def _build_member_list_by_place(
         if not sessions.exists():
             continue
 
-        lines = [member.name]
+        lines = []
 
         for s in sessions:
             if s.start_time and s.end_time:

@@ -126,54 +126,12 @@
                     <tr>
                         <td>
                             {% if staff %}
-                            <div>
-                                <div class=>{{ staff.display | linebreaksbr }}</div>
-                            </div>  
-                            
-                            <div class="mt-1">
-                                <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
-                                    {% csrf_token %}
-                                    <div class="d-flex gap-1">
-                                        {% if info.place_id > 0 %}
-                                        <button type="button" id="staff_current_status_edit-{{ staff.id }}"
-                                            class="btn btn-sm {{ staff.current_status_btn_class }}" 
-                                            name="staff_current_status_edit" data-bs-toggle="modal" data-bs-target="#statusModal-{{ staff.id }}">
-                                            {{ staff.current_status_text }}
-                                        </button>                 
-                                        {% endif %}             
-                                        <button id="staff_record_edit_btn-{{ staff.id }}" class="btn-sm text-nowrap"
-                                            type="submit" name="staff_record_edit" value="{{ staff.id }}">
-                                            編集
-                                        </button>  
-                                    </div>                                      
-                                </form>
-                            </div>
+                            {% include "app/partials/member_cell.html" with member=staff role="staff" %}
                             {% endif %}
                         </td>
                         <td>
                             {% if customer %}
-                            <div>
-                                <div>{{ customer.display | linebreaksbr }}</div>
-                            </div>
-
-                            <div class="mt-1">
-                                <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
-                                    {% csrf_token %}
-                                    <div class="d-flex gap-1 align-items-center">
-                                        {% if info.place_id > 0 %}
-                                        <button type="button" id="customer_current_status_edit-{{ customer.id }}"
-                                            class="btn btn-sm {{ customer.current_status_btn_class }}" 
-                                            name="customer_current_status_edit" data-bs-toggle="modal" data-bs-target="#statusModal-{{ customer.id }}">
-                                            {{ customer.current_status_text }}
-                                        </button> 
-                                        {% endif %}                                             
-                                        <button id="customer_record_edit_btn-{{ customer.id }}" class="btn-sm text-nowrap"
-                                            type="submit" name="customer_record_edit" value="{{ customer.id }}">
-                                            編集
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
+                            {% include "app/partials/member_cell.html" with member=customer role="customer" %}
                             {% endif %}
                         </td>
                     </tr>
