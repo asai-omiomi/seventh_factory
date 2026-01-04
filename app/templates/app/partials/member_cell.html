@@ -16,7 +16,6 @@
             alt=""
             class="eye_icon_img">
     </button>
-    {% include "app/partials/history_modal.html" with member=member member_type=member_type %}
 </div>
 
 {{ member.display | linebreaksbr }}
@@ -33,7 +32,6 @@
             {{ member.current_status_text }}
         </button>
     </div>
-    {% include "app/partials/current_status_modal.html" with member=member member_type=member_type current_status_choices=current_status_choices place_id=info.place_id %}
     {% endif %}
     <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
         {% csrf_token %}
@@ -46,4 +44,3 @@
         </button>
     </form>
 </div>
-

@@ -117,12 +117,12 @@
                     <tr>
                         <td>
                             {% if staff %}
-                            {% include "app/partials/member_cell.html" with member=staff member_type="staff" current_status_choices=current_status_staff_choices %}
+                            {% include "app/partials/member_cell.html" with member=staff member_type="staff" %}
                             {% endif %}
                         </td>
                         <td>
                             {% if customer %}
-                            {% include "app/partials/member_cell.html" with member=customer member_type="customer" current_status_choices=current_status_customer_choices %}
+                            {% include "app/partials/member_cell.html" with member=customer member_type="customer"%}
                             {% endif %}
                         </td>
                     </tr>
@@ -178,8 +178,26 @@
             </div>
         </div>
     </div>
-    {% endif %}
 
+    {% for info in info %}
+        {% if info.staff_cusotmer_list %}
+            {% with info.staff_cusotmer_list|length as rowspan %}
+                {% for staff, customer in info.staff_cusotmer_list %}
+                    {% if staff or customer %}
+                        {% if staff %}
+                            {% include "app/partials/history_modal.html" with member=staff member_type="staff" %}
+                            {% include "app/partials/current_status_modal.html" with member=staff member_type="staff" current_status_choices=current_status_staff_choices place_id=info.place_id %}
+                        {% endif %}
+                        {% if customer %}
+                            {% include "app/partials/history_modal.html" with member=customer member_type="customer" %}
+                            {% include "app/partials/current_status_modal.html" with member=customer member_type="customer" current_status_choices=current_status_customer_choices place_id=info.place_id %}
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+            {% endwith %}
+        {% endif %}
+    {% endfor %}
+    {% endif %}
 </div>
 
 {% endblock %}
