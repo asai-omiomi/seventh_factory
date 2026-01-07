@@ -57,7 +57,6 @@ class BaseMemberModel(models.Model):
     name = models.CharField(
         max_length=20,
         blank=False,
-        null=False,
         default=''
     )
 
@@ -97,8 +96,11 @@ class BaseRecordModel(models.Model):
     change_history = models.CharField(
         max_length=2000,
         blank=True,
-        null=True,
         default=''
+    )
+
+    is_work_status_changed = models.BooleanField(
+        default=False
     )
 
     class Meta:
@@ -216,7 +218,7 @@ class BaseTransportModel(models.Model):
     place = models.CharField(
         max_length=20,
         blank=True,
-        null=True,
+        default='',
     )
 
     staff = models.ForeignKey(
@@ -229,7 +231,7 @@ class BaseTransportModel(models.Model):
     remarks = models.CharField(
         max_length=20,
         blank=True,
-        null=True,
+        default='',
     )
 
     class Meta:
@@ -263,6 +265,7 @@ class TransportRecordModel(BaseTransportModel):
 
 class BaseSessionModel(models.Model):
     session_no = models.PositiveSmallIntegerField(null=False,default=1)
+
     place = models.ForeignKey(
         'PlaceModel',
         on_delete=models.CASCADE,
@@ -271,6 +274,18 @@ class BaseSessionModel(models.Model):
     )
     start_time = models.TimeField(blank=True, null=True)
     end_time = models.TimeField(blank=True, null=True)
+
+    is_place_changed = models.BooleanField(
+        default=False
+    )
+
+    is_start_time_changed = models.BooleanField(
+        default=False
+    )
+
+    is_end_time_changed = models.BooleanField(
+        default=False
+    )
 
     class Meta:
         abstract = True  # DB テーブルは作らない
@@ -363,7 +378,7 @@ class PlaceModel(models.Model):
     name = models.CharField(
         max_length=20, 
         blank=True,
-        null=True,
+        default='',
      )
     
     order = models.PositiveIntegerField(default=1)
@@ -388,7 +403,6 @@ class PlaceRemarksModel(models.Model):
     remarks = models.CharField(
         max_length=100,
         blank=True,
-        null=False,
         default=""
     )
 

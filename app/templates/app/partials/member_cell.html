@@ -18,7 +18,11 @@
     </button>
 </div>
 
-{{ member.display | linebreaksbr }}
+{% for line in member.display %}
+<div class="{% if line.changed %}text-danger{% endif %}">
+    {{ line.text }}
+</div>
+{% endfor %}
 
 <div class="mt-1 d-flex gap-1">
     {% if info.place_id > 0 %}

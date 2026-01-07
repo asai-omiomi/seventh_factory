@@ -10,7 +10,7 @@
 
       <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
         {% csrf_token %}
-        <div class="modal-body">
+        <div class="modal-body d-flex justify-content-between"> 
           {% for value, label in current_status_choices %}
           <div class="form-check mt-2">
             <label class="form-check-label radio-large">
@@ -18,7 +18,7 @@
               {{ label }}
             </label>
           </div>
-          {% endfor %}
+          {% endfor %}  
         </div>
 
         <div class="modal-footer">

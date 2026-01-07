@@ -402,14 +402,14 @@ def _build_member_list_by_work_status(
             continue
 
         if work_status_set is not None and rcd.work_status in work_status_set:
-            display_name =""
+            display =""
             if hasattr(rcd, 'work_status') and rcd.work_status == StaffWorkStatusEnum.OFF_WITH_PAY:
-                display_name = "有給"
+                display = "有給"
 
             result.append({
                 'id': member.id,
                 'name': member.name,
-                'display': display_name,
+                'display': display,
                 'change_history':rcd.change_history,
             })
 
@@ -443,12 +443,14 @@ def _build_member_list_by_place(
 
         for s in sessions:
             if s.start_time and s.end_time:
-                lines.append(
-                    f"{s.start_time.strftime('%H:%M')}～{s.end_time.strftime('%H:%M')}"
-                )
+                lines.append({
+                    'text': f"{s.start_time.strftime('%H:%M')}～{s.end_time.strftime('%H:%M')}",
+                    'changed': False,
+                })
 
         if extra_lines_builder:
-            lines.extend(extra_lines_builder(rcd))
+            for extra in extra_lines_builder(rcd):
+                lines.append(extra)
 
         # current_status は session 側から取る
         first_session = sessions[0]
@@ -456,12 +458,62 @@ def _build_member_list_by_place(
         result.append({
             'id': member.id,
             'name': member.name,
-            'display': "\n".join(lines),
+            'display': lines,
             'current_status': first_session.current_status,
             'current_status_text': first_session.get_current_status_display(),
             'current_status_btn_class': _status_btn_class(first_session.current_status),
-            'change_history':rcd.change_history,
+            'change_history': rcd.change_history,
         })
+
+    return result
+
+# def _build_member_list_by_place(
+#     records,
+#     *,
+#     place,
+#     get_member,
+#     session_model,
+#     extra_lines_builder=None,
+# ):
+#     result = []
+
+#     for rcd in records:
+#         member = get_member(rcd)
+#         if not member:
+#             continue
+
+#         sessions = (
+#             session_model.objects
+#             .filter(record=rcd, place=place)
+#             .order_by('session_no')
+#         )
+
+#         if not sessions.exists():
+#             continue
+
+#         lines = []
+
+#         for s in sessions:
+#             if s.start_time and s.end_time:
+#                 lines.append(
+#                     f"{s.start_time.strftime('%H:%M')}～{s.end_time.strftime('%H:%M')}"
+#                 )
+
+#         if extra_lines_builder:
+#             lines.extend(extra_lines_builder(rcd))
+
+#         # current_status は session 側から取る
+#         first_session = sessions[0]
+
+#         result.append({
+#             'id': member.id,
+#             'name': member.name,
+#             'display': "\n".join(lines),
+#             'current_status': first_session.current_status,
+#             'current_status_text': first_session.get_current_status_display(),
+#             'current_status_btn_class': _status_btn_class(first_session.current_status),
+#             'change_history':rcd.change_history,
+#         })
 
     return result
 
@@ -501,9 +553,38 @@ def _build_customer_extra_lines(rcd):
             if transport.remarks:
                 text += f" {transport.remarks}"
 
-        lines.append(text)
+        lines.append({
+            'text': text,
+            'changed': False,
+        })
 
     return lines
+
+    # lines = []
+
+    # for t_type in TransportTypeEnum:
+    #     transport = TransportRecordModel.objects.filter(
+    #         record=rcd,
+    #         transport_type=t_type
+    #     ).first()
+
+    #     if not transport:
+    #         continue
+
+    #     label = t_type.label
+    #     text = f"[{label}] {transport.get_transport_means_display() or ''}"
+
+    #     if transport.transport_means == TransportMeansEnum.TRANSFER:
+    #         if transport.staff:
+    #             text += f" {transport.staff}"
+    #         if transport.place:
+    #             text += f" {transport.place}"
+    #         if transport.remarks:
+    #             text += f" {transport.remarks}"
+
+    #     lines.append(text)
+
+    # return lines
     
 def _build_remarks(place=None, work_date=None):
     if not place:
@@ -613,7 +694,6 @@ def info_dispatch(request, work_date):
         return redirect('info', work_date=work_date)
     
     return redirect('info', work_date)     
-
 
 def _current_status_edit(request):
     _update_session_current_status(
