@@ -99,7 +99,7 @@ class BaseRecordModel(models.Model):
         default=''
     )
 
-    is_work_status_changed = models.BooleanField(
+    is_work_status_changed_today = models.BooleanField(
         default=False
     )
 
@@ -257,6 +257,10 @@ class TransportRecordModel(BaseTransportModel):
         related_name='record_transport'
     )
 
+    is_changed_today = models.BooleanField(
+        default = False
+    )
+
     class Meta:
         unique_together = ('record', 'transport_type')
 
@@ -274,18 +278,6 @@ class BaseSessionModel(models.Model):
     )
     start_time = models.TimeField(blank=True, null=True)
     end_time = models.TimeField(blank=True, null=True)
-
-    is_place_changed = models.BooleanField(
-        default=False
-    )
-
-    is_start_time_changed = models.BooleanField(
-        default=False
-    )
-
-    is_end_time_changed = models.BooleanField(
-        default=False
-    )
 
     class Meta:
         abstract = True  # DB テーブルは作らない
@@ -347,6 +339,14 @@ class StaffSessionRecordModel(BaseSessionModel):
         default=CurrentStatusStaffEnum.BEFORE
     )
 
+    is_place_changed_today = models.BooleanField(
+        default=False
+    )
+
+    is_time_changed_today = models.BooleanField(
+        default=False
+    )
+
     class Meta:
         unique_together = ('record', 'session_no')
         ordering = ['session_no']
@@ -365,6 +365,14 @@ class CustomerSessionRecordModel(BaseSessionModel):
     current_status = models.IntegerField(
         choices=CurrentStatusCustomerEnum.choices,
         default=CurrentStatusCustomerEnum.BEFORE
+    )
+
+    is_place_changed_today = models.BooleanField(
+        default=False
+    )
+
+    is_time_changed_today = models.BooleanField(
+        default=False
     )
 
     class Meta:
@@ -411,31 +419,4 @@ class PlaceRemarksModel(models.Model):
 
     def __str__(self):
         return f'{self.place} - {self.work_date}'
-    
-class OperationLogModel(models.Model):
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
-
-    action = models.CharField(max_length=50)
-
-    target_model = models.CharField(max_length=50, blank=True)
-    target_id = models.IntegerField(null=True, blank=True)
-
-    description = models.TextField(blank=True)
-
-    diff = models.JSONField(
-        null=True,
-        blank=True,
-        help_text='更新前後の差分'
-    )
-
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-created_at']
-
 

@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect,get_object_or_404
 from django.views.generic.base import TemplateView
-from .models import CustomerModel,CustomerRecordModel,StaffModel,CustomerWorkStatusPatternModel,StaffRecordModel, StaffSessionRecordModel,StaffWorkStatusPatternModel,CustomerSessionRecordModel,CustomerSessionPatternModel,TransportPatternModel,StaffSessionPatternModel,TransportRecordModel,WeekdayEnum, PlaceModel, PlaceRemarksModel, OperationLogModel, TransportMeansEnum,TransportTypeEnum,StaffWorkStatusEnum, CustomerWorkStatusEnum, CurrentStatusStaffEnum,CurrentStatusCustomerEnum, WORK_SESSION_COUNT
+from .models import CustomerModel,CustomerRecordModel,StaffModel,CustomerWorkStatusPatternModel,StaffRecordModel, StaffSessionRecordModel,StaffWorkStatusPatternModel,CustomerSessionRecordModel,CustomerSessionPatternModel,TransportPatternModel,StaffSessionPatternModel,TransportRecordModel,WeekdayEnum, PlaceModel, PlaceRemarksModel, TransportMeansEnum,TransportTypeEnum,StaffWorkStatusEnum, CustomerWorkStatusEnum, CurrentStatusStaffEnum,CurrentStatusCustomerEnum, WORK_SESSION_COUNT
 from .forms import CustomerWorkStatusPatternForm,PlaceRemarksForm,StaffForm,StaffRecordForm,CustomerForm,CustomerWorkStatusPatternForm,CustomerSessionPatternForm,CustomerSessionRecordForm,StaffSessionRecordForm,TransportPatternForm,TransportRecordForm,StaffSessionPatternForm,CustomerRecordForm,StaffWorkStatusPatternForm,CalendarForm,OutputForm
 import datetime
 from dateutil.relativedelta import relativedelta
@@ -54,7 +54,6 @@ def _update_session_current_status(
             staff_id=member_id,
             work_date=work_date,
         )
-        member_name = record.staff.name
         session_model = StaffSessionRecordModel
         special_statuses = [CurrentStatusStaffEnum.ABSENT]
         record_status_mapping = {
@@ -70,7 +69,6 @@ def _update_session_current_status(
             customer_id=member_id,
             work_date=work_date,
         )
-        member_name = record.customer.name
         session_model = CustomerSessionRecordModel
         special_statuses = [CurrentStatusCustomerEnum.HOME, CurrentStatusCustomerEnum.ABSENT]
         record_status_mapping = {
@@ -112,86 +110,59 @@ def _update_session_current_status(
 
         # recordModel の work_status を更新
         record.work_status = record_status_mapping[new_status]
+        if record.is_work_status_changed_today == False:
+            record.is_work_status_changed_today = _is_changed_today(prev_status, new_status, work_date)
         record.save()
 
     # 変更履歴を保存
     if new_status != prev_status:
         place = PlaceModel.objects.filter(pk=place_id).first()
-        content_text = f'{member_name}({place.name})の勤務状態を変更'
-        changes = [
-            {
-                'label': '',
-                'before': prev_status_label,
-                'after': new_status_label,
-            }
-        ]
+        content_text = f"[{_get_change_text(prev_status_label, new_status_label)}({place.name})]"
 
         _save_change_history(
             request, 
             record=record, 
             content_text=content_text,
-            changes=changes
             )
+
+def _is_changed_today(prev, new, work_date):
+
+    if isinstance(work_date, str):
+        work_date = datetime.datetime.strptime(work_date, "%Y-%m-%d").date()
+
+    # 当日の変更でなければ変更ありにしない
+    if work_date != timezone.localdate():
+        return False
+    
+    return _is_changed(prev, new)
+
+def _is_changed(prev, new):
+    # None 同士は変更なし
+    if prev is None and new is None:
+        return False
+    
+    # 複数値（list / tuple / set）
+    if isinstance(prev, (list, tuple, set)) and isinstance(new, (list, tuple, set)):
+        return set(prev) != set(new)
+
+    # 値が異なっていたら変更あり    
+    return prev != new
 
 def _save_change_history(
         request, 
         *, 
         record, 
-        content_text, 
-        changes=None): 
+        content_text): 
     
     now = timezone.localtime().strftime("%m/%d %H:%M:%S")
     user = request.user.last_name
 
-    detail_text = _format_change_details(changes)
-
-    # 変化がなければ終了 
-    if not detail_text:
-        return
-    
     history_text = (
-        f'[{now}]{user}が{content_text}{detail_text}\n'
+        f'[{now}]{content_text} by{user}\n'
     )
 
     record.change_history = history_text + record.change_history
     record.save()
-
-def _format_change_details(changes):
-
-    # changesのリストから差分文字列を作成する
-    # [
-    #     {'label': '交通手段', 'before': '車', 'after': 'バス'},
-    #     ...
-    # ]
-
-    if not changes:
-        return ""
-
-    lines = []
-
-    for ch in changes:
-        label = ch.get('label')
-        before = ch.get('before')
-        after = ch.get('after')
-
-        if before == after:
-            continue
-
-        if before is not None and after is not None:
-            diff_text = f'{before}→{after}'
-        elif before is None and after is not None:
-            diff_text = f'未設定→{after}'
-        elif before is not None and after is None:
-            diff_text = f'{before}→未設定'
-        else:
-            continue
-
-        if label:
-            lines.append(f'[{label}：{diff_text}]')
-        else:
-            lines.append(f'[{diff_text}]')
-
-    return ' '.join(lines)
 
 def _build_info(work_date):
 
@@ -266,12 +237,17 @@ def _build_member_list_without_place(
         if not member:
             continue
 
+        name = {
+            'text': member.name,
+            'changed': rcd.is_work_status_changed_today
+        }
+
         # 出勤/通所だけれども場所が1つも設定されていない
         if rcd.work_status == work_status:
             if not _has_any_place_session(rcd, session_model):
                 result.append({
                     'id': member.id,
-                    'name': member.name,
+                    'name': name,
                     'display': "",
                     'change_history':rcd.change_history,
                 })
@@ -402,14 +378,20 @@ def _build_member_list_by_work_status(
             continue
 
         if work_status_set is not None and rcd.work_status in work_status_set:
-            display =""
+            name_text = member.name
             if hasattr(rcd, 'work_status') and rcd.work_status == StaffWorkStatusEnum.OFF_WITH_PAY:
-                display = "有給"
+                name_text += "(有給)"
+
+            name = {
+                'text':name_text,
+                'changed':rcd.is_work_status_changed_today
+            }
+
 
             result.append({
                 'id': member.id,
-                'name': member.name,
-                'display': display,
+                'name': name,
+                'display': '',
                 'change_history':rcd.change_history,
             })
 
@@ -439,13 +421,22 @@ def _build_member_list_by_place(
         if not sessions.exists():
             continue
 
+        
+        name = {
+            'text':member.name,
+            'changed':rcd.is_work_status_changed_today
+        }
+
         lines = []
 
         for s in sessions:
-            if s.start_time and s.end_time:
+
+            name['changed'] = s.is_place_changed_today
+
+            if s.start_time or s.end_time:
                 lines.append({
-                    'text': f"{s.start_time.strftime('%H:%M')}～{s.end_time.strftime('%H:%M')}",
-                    'changed': False,
+                    'text': _time_text(s.start_time, s.end_time),
+                    'changed': s.is_time_changed_today,
                 })
 
         if extra_lines_builder:
@@ -457,63 +448,13 @@ def _build_member_list_by_place(
 
         result.append({
             'id': member.id,
-            'name': member.name,
+            'name': name,
             'display': lines,
             'current_status': first_session.current_status,
             'current_status_text': first_session.get_current_status_display(),
             'current_status_btn_class': _status_btn_class(first_session.current_status),
             'change_history': rcd.change_history,
         })
-
-    return result
-
-# def _build_member_list_by_place(
-#     records,
-#     *,
-#     place,
-#     get_member,
-#     session_model,
-#     extra_lines_builder=None,
-# ):
-#     result = []
-
-#     for rcd in records:
-#         member = get_member(rcd)
-#         if not member:
-#             continue
-
-#         sessions = (
-#             session_model.objects
-#             .filter(record=rcd, place=place)
-#             .order_by('session_no')
-#         )
-
-#         if not sessions.exists():
-#             continue
-
-#         lines = []
-
-#         for s in sessions:
-#             if s.start_time and s.end_time:
-#                 lines.append(
-#                     f"{s.start_time.strftime('%H:%M')}～{s.end_time.strftime('%H:%M')}"
-#                 )
-
-#         if extra_lines_builder:
-#             lines.extend(extra_lines_builder(rcd))
-
-#         # current_status は session 側から取る
-#         first_session = sessions[0]
-
-#         result.append({
-#             'id': member.id,
-#             'name': member.name,
-#             'display': "\n".join(lines),
-#             'current_status': first_session.current_status,
-#             'current_status_text': first_session.get_current_status_display(),
-#             'current_status_btn_class': _status_btn_class(first_session.current_status),
-#             'change_history':rcd.change_history,
-#         })
 
     return result
 
@@ -555,36 +496,10 @@ def _build_customer_extra_lines(rcd):
 
         lines.append({
             'text': text,
-            'changed': False,
+            'changed': transport.is_changed_today,
         })
 
     return lines
-
-    # lines = []
-
-    # for t_type in TransportTypeEnum:
-    #     transport = TransportRecordModel.objects.filter(
-    #         record=rcd,
-    #         transport_type=t_type
-    #     ).first()
-
-    #     if not transport:
-    #         continue
-
-    #     label = t_type.label
-    #     text = f"[{label}] {transport.get_transport_means_display() or ''}"
-
-    #     if transport.transport_means == TransportMeansEnum.TRANSFER:
-    #         if transport.staff:
-    #             text += f" {transport.staff}"
-    #         if transport.place:
-    #             text += f" {transport.place}"
-    #         if transport.remarks:
-    #             text += f" {transport.remarks}"
-
-    #     lines.append(text)
-
-    # return lines
     
 def _build_remarks(place=None, work_date=None):
     if not place:
@@ -1130,9 +1045,7 @@ def _record_save_common(
         }
     ).first()
 
-    all_changes = []
-
-    before = snapshot_for_log(record)
+    change_text = ""
     
     record_form = record_form_class(request.POST)
 
@@ -1143,34 +1056,33 @@ def _record_save_common(
     # 変更履歴に勤務状態だけを保存するかどうかのフラグ
     change_history_only_work_status = False
 
-    # 既存レコードを更新
+    # 勤務情報を更新
     for field, value in record_form.cleaned_data.items():
+        prev_work_status = record.work_status
         setattr(record, field, value)
-
+        new_work_status = record.work_status
+        if record.is_work_status_changed_today == False:
+            record.is_work_status_changed_today = _is_changed_today(prev_work_status, new_work_status, work_date)
         record.save()
 
-        after = snapshot_for_log(record)
+        if prev_work_status != new_work_status:
 
-        diff_record = make_diff(before, after, record, MEMBER_RECORD_FIELD_MAP)  
+            if member_field == 'staff':
+                prev_work_status_text = StaffWorkStatusEnum(prev_work_status).label
+                new_work_status_text = StaffWorkStatusEnum(new_work_status).label
+            else:
+                prev_work_status_text = CustomerWorkStatusEnum(prev_work_status).label
+                new_work_status_text = CustomerWorkStatusEnum(new_work_status).label
 
-        if diff_record:
+            change_text += "["+_get_change_text(prev_work_status_text,new_work_status_text)+"]"
+
             # 在宅・休みへの変更チェック
-            if '勤務形態' in diff_record:
-                new_status = diff_record['勤務形態']['after']
-                print(new_status)
-                if new_status in (
-                    StaffWorkStatusEnum.OFF.label, 
-                    CustomerWorkStatusEnum.HOME.label,
-                    CustomerWorkStatusEnum.OFF.label
-                ):
-                    change_history_only_work_status = True
-
-            for label, values in diff_record.items():
-                all_changes.append({
-                    'label': "",
-                    'before': values['before'],
-                    'after': values['after'],
-                })
+            if new_work_status in (
+                StaffWorkStatusEnum.OFF, 
+                CustomerWorkStatusEnum.HOME,
+                CustomerWorkStatusEnum.OFF
+            ):
+                change_history_only_work_status = True
 
     # 勤務セッション保存
     for i in range(WORK_SESSION_COUNT):
@@ -1192,62 +1104,96 @@ def _record_save_common(
             session_no=session_no,
         ).first()
 
-        before = snapshot_for_log(session)
+        prev_place = session.place
+        prev_start_time = session.start_time
+        prev_end_time = session.end_time
 
-        session.place = cd['place']
-        session.start_time = cd['start_time']
-        session.end_time = cd['end_time']
+        new_place = cd['place']
+        new_start_time = cd['start_time']
+        new_end_time = cd['end_time']
+
+        session.place = new_place
+        session.start_time = new_start_time
+        session.end_time = new_end_time
+
+        if session.is_place_changed_today == False:
+            session.is_place_changed_today = _is_changed_today(prev_place, new_place, work_date)
+
+        if session.is_time_changed_today == False: 
+            session.is_time_changed_today = _is_changed_today(
+                [prev_start_time, prev_end_time], 
+                [new_start_time, new_end_time],
+                work_date)
+
         session.save()
 
-        after = snapshot_for_log(session)
+        # 変更履歴
+        is_session_changed = _is_changed(
+            [prev_place, prev_start_time, prev_end_time],
+            [new_place, new_start_time, new_end_time]
+        )
+        if is_session_changed and change_history_only_work_status == False:
+            prev_text = _build_session_text(prev_place, prev_start_time, prev_end_time)
 
-        session_changes = _make_session_diff(before, after, session)
-
-        if session_changes and change_history_only_work_status == False:
-            all_changes.extend(session_changes)
+            new_text = _build_session_text(new_place, new_start_time, new_end_time)     
+            
+            change_text += "["+_get_change_text(prev_text,new_text)+"]"
 
     # 追加保存（送迎など）
     if extra_save_func:
-        extra_changes = extra_save_func(request, record)
-        if extra_changes and change_history_only_work_status == False:
-            all_changes.extend(extra_changes)
+        extra_change_text = extra_save_func(request, record)
+        if extra_change_text and change_history_only_work_status == False:
+            change_text += extra_change_text
 
-    if all_changes: 
-        content_text = f'{member.name}の勤務情報を変更'
-
+    if change_text: 
         _save_change_history(
             request,
             record=record,
-            content_text=content_text,
-            changes=all_changes
+            content_text=change_text,
         )
 
     return redirect('info', work_date)
 
+def _build_session_text(place, start_time, end_time):
+    text_list = []
+
+    if place:
+        text_list.append(place.name)
+        text_list.append(_time_text(start_time, end_time))
+
+    return " ".join(text_list)
+
+def _time_text(start_time, end_time):
+
+    start_text = f"{start_time.strftime('%H:%M')}" if start_time else ''
+    end_text = f"{end_time.strftime('%H:%M')}" if end_time else ''    
+
+    return f"{start_text}～{end_text}"
+
 def _customer_record_extra_save(request, record):
-    all_changes = []
+
+    change_text_list = []
 
     # 朝の送迎
-    morning_changes = _save_transport_record(
+    morning_change_text = _save_transport_record(
         request, record, TransportTypeEnum.MORNING
     )
-    if morning_changes:
-        # label を変更
-        for ch in morning_changes:
-            ch['label'] = "交通手段(朝)"
-        all_changes.extend(morning_changes)
+    if morning_change_text:
+        change_text_list.append("(朝)" + morning_change_text)
 
     # 帰りの送迎
-    return_changes = _save_transport_record(
+    return_change_text = _save_transport_record(
         request, record, TransportTypeEnum.RETURN
     )
-    if return_changes:
-        for ch in return_changes:
-            ch['label'] = "交通手段(帰り)"
-        all_changes.extend(return_changes)
+    if return_change_text:
+        change_text_list.append("(帰り)" + return_change_text)
 
-    return all_changes or None
+    change_text = "/".join(change_text_list)
 
+    if change_text:
+        change_text = "[" + change_text + "]"
+
+    return change_text
 
 def _save_transport_record(request, record, transport_type):
 
@@ -1269,29 +1215,65 @@ def _save_transport_record(request, record, transport_type):
         record=record,
         transport_type=transport_type,
     ).first()
+    
+    prev_transport_means = transport.transport_means
+    prev_place = transport.place
+    prev_staff = transport.staff
+    prev_remarks = transport.remarks
 
-    before = snapshot_for_log(transport)
+    new_transport_means = cd['transport_means']
+    new_place = cd['place']
+    new_staff = cd['staff']
+    new_remarks = cd['remarks']
 
-    transport, _ = TransportRecordModel.objects.update_or_create(
-        customer=record.customer,
-        record = record,
-        transport_type=transport_type,
-        defaults={
-            'transport_means': cd['transport_means'],
-            'place': cd['place'],
-            'staff': cd['staff'],
-            'remarks': cd['remarks'],
-        }
+    transport.transport_means = new_transport_means
+    transport.place = new_place
+    transport.staff = new_staff
+    transport.remarks = new_remarks
+
+    if transport.is_changed_today == False: # Trueの場合は何もしない
+        transport.is_changed_today = _is_changed_today(
+        [prev_transport_means, prev_place, prev_staff, prev_remarks],
+        [new_transport_means, new_place, new_staff, new_remarks],
+        record.work_date
     )
 
-    after = snapshot_for_log(transport)
+    transport.save()
 
-    changes = make_transport_diff(
-        before,
-        after,
-        transport,
+    # 変更履歴の内容文字列作成
+    is_changed = _is_changed(
+        [prev_transport_means, prev_place, prev_staff, prev_remarks],
+        [new_transport_means, new_place, new_staff, new_remarks]
     )
-    return changes
+    if is_changed == False:
+        return ""
+    
+    # 交通手段は必ず記録
+    prev_text_list = []
+    new_text_list = []
+    prev_text_list.append(TransportMeansEnum(prev_transport_means).label if prev_transport_means else "")
+    new_text_list.append(TransportMeansEnum(new_transport_means).label if new_transport_means else "")    
+        
+    # 交通手段以外は送迎のときのみ記録
+    if new_transport_means == TransportMeansEnum.TRANSFER:
+        prev_text_list.append(prev_place)
+        prev_text_list.append(prev_staff.name if prev_staff else "")
+        prev_text_list.append(prev_remarks)
+
+        new_text_list.append(new_place)
+        new_text_list.append(new_staff.name if new_staff else "")
+        new_text_list.append(new_remarks)
+
+    prev_text = " ".join(prev_text_list)
+    new_text = " ".join(new_text_list)
+
+    return _get_change_text(prev_text, new_text)
+
+def _get_change_text(prev, new):
+    prev_text = prev if prev else "未設定"
+    new_text = new if new else "未設定"
+
+    return f"{prev_text}→{new_text}"
 
 def place_remarks_edit(request, place_id, work_date):
 
@@ -2027,229 +2009,3 @@ MOVE_DOWN_FUNCS = {
     'staff': lambda pk: _move_order_down(StaffModel, pk),
     'customer': lambda pk: _move_order_down(CustomerModel, pk),
 }
-
-MEMBER_RECORD_FIELD_MAP = {
-    'work_date': '勤務日',
-    'work_status': '勤務形態',
-}
-
-SESSION_FIELD_MAP = {
-    'place': '場所',
-    'start_time': '開始時間',
-    'end_time': '終了時間',
-    'current_status': '勤務ステータス'
-}
-
-TRANSPORT_FIELD_MAP = {
-    'transport_means': '交通手段',
-    'place': '送迎場所',
-    'staff': '送迎スタッフ',
-    'remarks': '備考'
-}
-
-def model_snapshot(instance):
-    """モデルインスタンスを dict に変換"""
-    if instance is None:
-        return {}
-    return model_to_dict(instance)
-
-def snapshot_for_log(instance):
-    raw = model_snapshot(instance)
-    result = {}
-
-    for field, value in raw.items():
-        result[field] = normalize_value(
-            value,
-            instance=instance,
-            field_name=field,
-        )
-
-    return result
-
-
-def make_diff(before, after, instance, field_map):
-    diff = {}
-
-    for field, after_value in after.items():
-        before_value = before.get(field)
-
-        if before_value == after_value:
-            continue
-
-        label = field_map.get(field, field)
-
-        diff[label] = {
-            'before': normalize_value(before_value, instance=instance, field_name=field),
-            'after':  normalize_value(after_value,  instance=instance, field_name=field),
-        }
-
-    return diff
-
-def _make_session_diff(
-    before,
-    after,
-    instance,
-):
-    diff = make_diff(
-        before, after, instance, SESSION_FIELD_MAP
-        )
-    
-    changes = []
-    if diff:
-        for label, values in diff.items():
-            before_v = values['before']
-            after_v = values['after']
-
-            if before_v == after_v:
-                continue  # 変化なしは除外
-
-            if label == '場所':
-                # before_v, after_v は ID か None
-                if before_v is not None:
-                    try:
-                        before_v = PlaceModel.objects.get(pk=before_v).name
-                    except PlaceModel.DoesNotExist:
-                        before_v = f"(ID:{before_v})"
-
-                if after_v is not None:
-                    try:
-                        after_v = PlaceModel.objects.get(pk=after_v).name
-                    except PlaceModel.DoesNotExist:
-                        after_v = f"(ID:{after_v})"
-                # 場所のラベルはなくていい
-                label = ""
-
-
-            changes.append({
-                'label': label,
-                'before': before_v,
-                'after': after_v,
-            })
-
-    return changes  
-                
-def make_transport_diff(
-    before,
-    after,
-    instance,
-):
-    diff = make_diff(
-        before, after, instance, TRANSPORT_FIELD_MAP
-        )
-
-    if not diff:
-        return None
-
-    changes = []
-
-    display_order = ['交通手段', '送迎場所', '送迎スタッフ', '備考']
-
-    after_transport = after.get('transport_means')
-
-    for label in display_order:
-        if label not in diff:
-            continue
-
-        if label in ('送迎場所', '送迎スタッフ', '備考'):
-            # 送迎→送迎 保存する
-            # 送迎以外→送迎 保存する
-            # 送迎以外→送迎以外 保存しない
-            # 送迎→送迎以外 保存しない
-            if after_transport != TransportMeansEnum.TRANSFER.label:
-                continue
-
-        before_v = diff[label]['before']
-        after_v  = diff[label]['after']
-
-        # 念のため変化なしを除外
-        if before_v == after_v:
-            continue
-
-        if label == '送迎スタッフ':
-            try:
-                before_v = StaffModel.objects.get(pk=before_v).name
-            except StaffModel.DoesNotExist:
-                before_v = ""
-
-            try:
-                after_v = StaffModel.objects.get(pk=after_v).name
-            except StaffModel.DoesNotExist:
-                after_v = ""
-
-        changes.append({
-            'label': label,
-            'before': before_v,
-            'after': after_v,
-        })
-
-    if not changes:
-        return None
-
-    return changes
-
-    
-
-def normalize_value(value, *, instance=None, field_name=None):
-    if value is None:
-        return None
-
-    # datetime
-    if isinstance(value, datetime.datetime):
-        return value.strftime('%Y-%m-%d %H:%M:%S')
-
-    # date
-    if isinstance(value, datetime.date):
-        return value.strftime('%Y-%m-%d')
-
-    # time
-    if isinstance(value, datetime.time):
-        return value.strftime('%H:%M')
-
-    # ForeignKey（モデル）
-    if isinstance(value, models.Model):
-        return str(value)
-
-    # ChoiceField（IntegerChoicesなど）
-    if instance and field_name:
-        try:
-            field = instance._meta.get_field(field_name)
-            if field.choices:
-                return dict(field.choices).get(value, value)
-        except Exception:
-            pass
-
-    # JSONにそのまま出せる型
-    if isinstance(value, (int, float, str, bool)):
-        return value
-
-    # fallback（最後の砦）
-    return str(value)
-
-
-
-def log_operation(
-    *,
-    user=None,
-    action,
-    target=None,       # モデルインスタンス
-    description='',
-    diff=None,
-):
-    if target is not None:
-        try:
-            target_model = target.__class__.__name__
-            target_id = target.pk
-        except AttributeError:
-            raise ValueError("target には必ずモデルのインスタンスを渡してください")
-    else:
-        target_model = ''
-        target_id = None
-
-    OperationLogModel.objects.create(
-        user=user,
-        action=action,
-        target_model=target_model,
-        target_id=target_id,
-        description=description,
-        diff=diff,
-    )

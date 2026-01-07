@@ -3,14 +3,14 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">
-          勤務ステータスの変更（{{ member.name }}）
+          勤務ステータスの変更（{{ member.name.text }}）
         </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
 
       <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
         {% csrf_token %}
-        <div class="modal-body d-flex justify-content-between"> 
+        <div class="modal-body"> 
           {% for value, label in current_status_choices %}
           <div class="form-check mt-2">
             <label class="form-check-label radio-large">

@@ -1,8 +1,8 @@
 {% load static %}
 
 <div class="d-flex align-items-center">
-    <div>
-        {{ member.name }}
+    <div class="{% if member.name.changed %}text-danger{% endif %}">
+        {{ member.name.text }}
     </div>
 
     <button type="button"
