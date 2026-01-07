@@ -1165,6 +1165,9 @@ def _build_session_text(place, start_time, end_time):
 
 def _time_text(start_time, end_time):
 
+    if not start_time and not end_time:
+        return ""
+
     start_text = f"{start_time.strftime('%H:%M')}" if start_time else ''
     end_text = f"{end_time.strftime('%H:%M')}" if end_time else ''    
 
