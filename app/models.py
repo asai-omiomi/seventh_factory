@@ -201,50 +201,6 @@ class CustomerPatternModel(models.Model):
     def __str__(self):
         return f'{self.customer.name} - {self.get_weekday_display()}'
     
-class StaffWorkStatusPatternModel(models.Model):
-    staff = models.ForeignKey(
-        StaffModel,
-        on_delete=models.CASCADE,
-    )
-        
-    weekday = models.IntegerField(
-        choices=WeekdayEnum.choices
-    )
-
-    work_status = models.IntegerField(
-        choices=StaffWorkStatusEnum.choices,
-        default=StaffWorkStatusEnum.OFF
-    )
-
-    class Meta:
-        unique_together = ('staff', 'weekday')
-        ordering = ['weekday']
-
-    def __str__(self):
-        return f'{self.staff.name} - {self.get_weekday_display()}'
-    
-class CustomerWorkStatusPatternModel(models.Model):
-    customer = models.ForeignKey(
-        CustomerModel,
-        on_delete=models.CASCADE,
-    )
-        
-    weekday = models.IntegerField(
-        choices=WeekdayEnum.choices
-    )
-
-    work_status = models.IntegerField(
-        choices=CustomerWorkStatusEnum.choices,
-        default=CustomerWorkStatusEnum.OFF
-    )
-
-    class Meta:
-        unique_together = ('customer', 'weekday')
-        ordering = ['weekday']
-
-    def __str__(self):
-        return f'{self.customer.name} - {self.get_weekday_display()}'
-    
 class BaseTransportModel(models.Model):
     customer = models.ForeignKey(
         CustomerModel,
