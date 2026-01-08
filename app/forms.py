@@ -1,6 +1,6 @@
 # forms.py
 from django import forms
-from .models import StaffModel, StaffRecordModel, CustomerModel, CustomerRecordModel, StaffWorkStatusPatternModel,CustomerWorkStatusPatternModel,TransportPatternModel,StaffSessionPatternModel, CustomerSessionPatternModel, TransportRecordModel,PlaceRemarksModel,StaffSessionRecordModel, CustomerSessionRecordModel, TransportTypeEnum
+from .models import StaffModel, StaffRecordModel, CustomerModel, CustomerRecordModel, StaffPatternModel, CustomerPatternModel, TransportPatternModel,StaffSessionPatternModel, CustomerSessionPatternModel, TransportRecordModel,PlaceRemarksModel,StaffSessionRecordModel, CustomerSessionRecordModel, TransportTypeEnum
 import datetime
    
 class StaffForm(forms.ModelForm):
@@ -32,18 +32,18 @@ class CustomerRecordForm(forms.ModelForm):
             'work_status': forms.Select(attrs={'class': 'work-status'}),        
         }
 
-class StaffWorkStatusPatternForm(forms.ModelForm):
+class StaffPatternForm(forms.ModelForm):
     class Meta:
-        model = StaffWorkStatusPatternModel
+        model = StaffPatternModel
         fields = ['work_status',]
 
         widgets = {
             'work_status':forms.Select(attrs={'class': 'work-status'})
         }  
 
-class CustomerWorkStatusPatternForm(forms.ModelForm):
+class CustomerPatternForm(forms.ModelForm):
     class Meta:
-        model = CustomerWorkStatusPatternModel
+        model = CustomerPatternModel
         fields = ['work_status',]
 
         widgets = {

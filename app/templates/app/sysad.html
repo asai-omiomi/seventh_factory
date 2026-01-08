@@ -9,8 +9,8 @@
 <div class="wrapper">
     <h1>システム管理</h1>
 
-    
     <hr class="my-4">
+
     <form action="{% url 'delete_record' %}" method="post">
         {% csrf_token %}
         <div>
@@ -33,8 +33,20 @@
                 {% endfor %}
             </div>
             {% endif %}
-        </div>   
+        </div>    
     </form> 
+
+    <hr class="my-4">
+
+    <form action="{% url 'test_record_copy' %}" method="post">
+        {% csrf_token %}
+        <div>
+            テスト用(レコードコピー)
+            <button class="btn-sm" type="submit" name="test_record_copy" value="0">
+                実行
+            </button>            
+        </div>
+    </form>
     
     <hr class="my-4">   
 

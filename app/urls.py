@@ -34,9 +34,10 @@ urlpatterns = [
 
     path('output/', views.output, name='output'),      
     path('output/execute', views.output_execute, name='output_execute'),  
+
     path('sysad/', views.sysad, name='sysad'), 
     path('sysad/delete_record', views.delete_record, name='delete_record'), 
-      
+    path('sysad/test_record_copy', views.test_record_copy, name='test_record_copy'),   
 
     path('password_change/', views.password_change, name='password_change'),  
     path('password_change/done/', auth_views.PasswordChangeDoneView.as_view(template_name='app/password_change_done.html'), name='password_change_done'),  

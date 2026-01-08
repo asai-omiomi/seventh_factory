@@ -94,7 +94,7 @@ class BaseRecordModel(models.Model):
     work_date = models.DateField()
 
     change_history = models.CharField(
-        max_length=2000,
+        max_length=500,
         blank=True,
         default=''
     )
@@ -102,6 +102,8 @@ class BaseRecordModel(models.Model):
     is_work_status_changed_today = models.BooleanField(
         default=False
     )
+
+    
 
     class Meta:
         abstract = True
@@ -154,6 +156,50 @@ class CustomerRecordModel(BaseRecordModel):
                 name='unique_customer_work_date'
             )
         ] 
+
+class StaffPatternModel(models.Model):
+    staff = models.ForeignKey(
+        StaffModel,
+        on_delete=models.CASCADE,
+    )
+        
+    weekday = models.IntegerField(
+        choices=WeekdayEnum.choices
+    )
+
+    work_status = models.IntegerField(
+        choices=StaffWorkStatusEnum.choices,
+        default=StaffWorkStatusEnum.OFF
+    )
+
+    class Meta:
+        unique_together = ('staff', 'weekday')
+        ordering = ['weekday']
+
+    def __str__(self):
+        return f'{self.staff.name} - {self.get_weekday_display()}'
+    
+class CustomerPatternModel(models.Model):
+    customer = models.ForeignKey(
+        CustomerModel,
+        on_delete=models.CASCADE,
+    )
+        
+    weekday = models.IntegerField(
+        choices=WeekdayEnum.choices
+    )
+
+    work_status = models.IntegerField(
+        choices=CustomerWorkStatusEnum.choices,
+        default=CustomerWorkStatusEnum.OFF
+    )
+
+    class Meta:
+        unique_together = ('customer', 'weekday')
+        ordering = ['weekday']
+
+    def __str__(self):
+        return f'{self.customer.name} - {self.get_weekday_display()}'
     
 class StaffWorkStatusPatternModel(models.Model):
     staff = models.ForeignKey(

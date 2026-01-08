@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect,get_object_or_404
 from django.views.generic.base import TemplateView
-from .models import CustomerModel,CustomerRecordModel,StaffModel,CustomerWorkStatusPatternModel,StaffRecordModel, StaffSessionRecordModel,StaffWorkStatusPatternModel,CustomerSessionRecordModel,CustomerSessionPatternModel,TransportPatternModel,StaffSessionPatternModel,TransportRecordModel,WeekdayEnum, PlaceModel, PlaceRemarksModel, TransportMeansEnum,TransportTypeEnum,StaffWorkStatusEnum, CustomerWorkStatusEnum, CurrentStatusStaffEnum,CurrentStatusCustomerEnum, WORK_SESSION_COUNT
-from .forms import CustomerWorkStatusPatternForm,PlaceRemarksForm,StaffForm,StaffRecordForm,CustomerForm,CustomerWorkStatusPatternForm,CustomerSessionPatternForm,CustomerSessionRecordForm,StaffSessionRecordForm,TransportPatternForm,TransportRecordForm,StaffSessionPatternForm,CustomerRecordForm,StaffWorkStatusPatternForm,CalendarForm,OutputForm
+from .models import CustomerModel,CustomerRecordModel,StaffModel,StaffPatternModel, CustomerPatternModel, StaffRecordModel, StaffSessionRecordModel,CustomerSessionRecordModel,CustomerSessionPatternModel,TransportPatternModel,StaffSessionPatternModel,TransportRecordModel,WeekdayEnum, PlaceModel, PlaceRemarksModel, TransportMeansEnum,TransportTypeEnum,StaffWorkStatusEnum, CustomerWorkStatusEnum, CurrentStatusStaffEnum,CurrentStatusCustomerEnum, WORK_SESSION_COUNT
+from .forms import CustomerPatternForm,PlaceRemarksForm,StaffForm,StaffRecordForm,CustomerForm,CustomerSessionPatternForm,CustomerSessionRecordForm,StaffSessionRecordForm,TransportPatternForm,TransportRecordForm,StaffSessionPatternForm,CustomerRecordForm,StaffPatternForm,CalendarForm,OutputForm
 import datetime
 from dateutil.relativedelta import relativedelta
 from django.http import HttpResponse
@@ -630,7 +630,7 @@ def _create_records(request, work_date):
         owner_model=StaffModel,
         record_model=StaffRecordModel,
         owner_field='staff',
-        work_status_pattern_model=StaffWorkStatusPatternModel,
+        work_status_pattern_model=StaffPatternModel,
         off_value=StaffWorkStatusEnum.OFF,
         session_pattern_model=StaffSessionPatternModel,
         session_record_model=StaffSessionRecordModel,
@@ -644,7 +644,7 @@ def _create_records(request, work_date):
         owner_model=CustomerModel,
         record_model=CustomerRecordModel,
         owner_field='customer',
-        work_status_pattern_model=CustomerWorkStatusPatternModel,
+        work_status_pattern_model=CustomerPatternModel,
         off_value=CustomerWorkStatusEnum.OFF,
         session_pattern_model=CustomerSessionPatternModel,
         session_record_model=CustomerSessionRecordModel,
@@ -1439,8 +1439,8 @@ def _create_or_edit_staff(request, staff_id=None):
         owner_model=StaffModel,
         owner_form_class=StaffForm,
         build_patterns_kwargs=dict(
-            work_status_pattern_model=StaffWorkStatusPatternModel,
-            work_status_pattern_form=StaffWorkStatusPatternForm,
+            work_status_pattern_model=StaffPatternModel,
+            work_status_pattern_form=StaffPatternForm,
             session_pattern_model=StaffSessionPatternModel,
             session_form_class=StaffSessionPatternForm,
             owner_field='staff',
@@ -1672,8 +1672,8 @@ def staff_save(request, staff_id):
         owner_id=staff_id,
         owner_model=StaffModel,
         owner_form_class=StaffForm,
-        work_status_form_class=StaffWorkStatusPatternForm,
-        work_status_model=StaffWorkStatusPatternModel,
+        work_status_form_class=StaffPatternForm,
+        work_status_model=StaffPatternModel,
         session_form_class=StaffSessionPatternForm,
         session_model=StaffSessionPatternModel,
         owner_field='staff',
@@ -1700,8 +1700,8 @@ def _create_or_edit_customer(request, customer_id=None):
         owner_model=CustomerModel,
         owner_form_class=CustomerForm,
         build_patterns_kwargs=dict(
-            work_status_pattern_model=CustomerWorkStatusPatternModel,
-            work_status_pattern_form=CustomerWorkStatusPatternForm,
+            work_status_pattern_model=CustomerPatternModel,
+            work_status_pattern_form=CustomerPatternForm,
             session_pattern_model=CustomerSessionPatternModel,
             session_form_class=CustomerSessionPatternForm,
             owner_field='customer',
@@ -1712,6 +1712,10 @@ def _create_or_edit_customer(request, customer_id=None):
         template_name='app/customer_edit.html',
         context_name='customer_form',
     )
+
+
+
+
     
 def _day_prefix(day_value):
     return f'day{day_value}'
@@ -1761,8 +1765,8 @@ def customer_save(request, customer_id):
         owner_id=customer_id,
         owner_model=CustomerModel,
         owner_form_class=CustomerForm,
-        work_status_form_class=CustomerWorkStatusPatternForm,
-        work_status_model=CustomerWorkStatusPatternModel,
+        work_status_form_class=CustomerPatternForm,
+        work_status_model=CustomerPatternModel,
         session_form_class=CustomerSessionPatternForm,
         session_model=CustomerSessionPatternModel,
         owner_field='customer',
@@ -1833,9 +1837,32 @@ def delete_record(request):
         # 6. 場所備考
         PlaceRemarksModel.objects.filter(work_date=date).delete()
 
-        print("成功")
         messages.success(request, f"{date} のデータを削除しました。")
 
+    return redirect('sysad')
+
+@transaction.atomic
+def test_record_copy(request):
+
+    for src in StaffPatternModel.objects.all():
+        StaffPatternModel.objects.update_or_create(
+            staff=src.staff,
+            weekday=src.weekday,
+            defaults={
+                'work_status': src.work_status,
+            }
+        )    
+
+    for src in CustomerPatternModel.objects.all():
+        CustomerPatternModel.objects.update_or_create(
+            customer=src.customer,
+            weekday=src.weekday,
+            defaults={
+                'work_status': src.work_status,
+            }
+        )    
+
+    messages.success(request, "コピー完了")
     return redirect('sysad')
 
 def output(request):
