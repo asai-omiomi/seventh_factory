@@ -1841,30 +1841,6 @@ def delete_record(request):
 
     return redirect('sysad')
 
-@transaction.atomic
-def test_record_copy(request):
-
-    for src in StaffPatternModel.objects.all():
-        StaffPatternModel.objects.update_or_create(
-            staff=src.staff,
-            weekday=src.weekday,
-            defaults={
-                'work_status': src.work_status,
-            }
-        )    
-
-    for src in CustomerPatternModel.objects.all():
-        CustomerPatternModel.objects.update_or_create(
-            customer=src.customer,
-            weekday=src.weekday,
-            defaults={
-                'work_status': src.work_status,
-            }
-        )    
-
-    messages.success(request, "コピー完了")
-    return redirect('sysad')
-
 def output(request):
 
     today = timezone.now().date()
