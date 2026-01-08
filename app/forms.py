@@ -1,6 +1,6 @@
 # forms.py
 from django import forms
-from .models import StaffModel, StaffRecordModel, CustomerModel, CustomerRecordModel, StaffPatternModel, CustomerPatternModel, TransportPatternModel,StaffSessionPatternModel, CustomerSessionPatternModel, TransportRecordModel,PlaceRemarksModel,StaffSessionRecordModel, CustomerSessionRecordModel, TransportTypeEnum
+from .models import StaffModel, StaffRecordModel, CustomerModel, CustomerRecordModel, StaffPatternModel, CustomerPatternModel, TransportPatternModel,StaffSessionPatternModel, CustomerSessionPatternModel, TransportRecordModel,PlaceRemarksModel,StaffSessionRecordModel, CustomerSessionRecordModel, SysAdModel, TransportTypeEnum
 import datetime
    
 class StaffForm(forms.ModelForm):
@@ -196,7 +196,13 @@ class OutputForm(forms.Form):
         initial='customer'
     )
 
+class SysAdForm(forms.ModelForm):
+    class Meta:
+        model = SysAdModel
+        fields = ["auto_mode_days"]
 
-
-
-
+    auto_mode_days = forms.IntegerField(
+        min_value=0,
+        max_value=10,
+        label="自動作成日数",
+    )

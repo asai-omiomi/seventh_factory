@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import StaffModel,CustomerModel,StaffRecordModel,CustomerRecordModel,StaffPatternModel,CustomerPatternModel,StaffSessionRecordModel,CustomerSessionRecordModel,StaffSessionPatternModel,CustomerSessionPatternModel,TransportRecordModel,TransportPatternModel,PlaceModel,PlaceRemarksModel
+from .models import StaffModel,CustomerModel,StaffRecordModel,CustomerRecordModel,StaffPatternModel,CustomerPatternModel,StaffSessionRecordModel,CustomerSessionRecordModel,StaffSessionPatternModel,CustomerSessionPatternModel,TransportRecordModel,TransportPatternModel,PlaceModel,PlaceRemarksModel, SysAdModel
 
 
 admin.site.register(StaffModel)
@@ -16,3 +16,4 @@ admin.site.register(TransportRecordModel)
 admin.site.register(TransportPatternModel)
 admin.site.register(PlaceModel)
 admin.site.register(PlaceRemarksModel)
+admin.site.register(SysAdModel)

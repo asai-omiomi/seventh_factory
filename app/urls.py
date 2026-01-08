@@ -36,7 +36,8 @@ urlpatterns = [
     path('output/execute', views.output_execute, name='output_execute'),  
 
     path('sysad/', views.sysad, name='sysad'), 
-    path('sysad/delete_record', views.delete_record, name='delete_record'),  
+    path('sysad/update_auto_mode', views.sysad_update_auto_mode, name='sysad_update_auto_mode'),  
+    path('sysad/delete_record', views.sysad_delete_record, name='sysad_delete_record'),
 
     path('password_change/', views.password_change, name='password_change'),  
     path('password_change/done/', auth_views.PasswordChangeDoneView.as_view(template_name='app/password_change_done.html'), name='password_change_done'),  

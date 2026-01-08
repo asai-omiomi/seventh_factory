@@ -1,6 +1,6 @@
 # models.py
 from django.db import models
-from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 WORK_SESSION_COUNT = 3
 
@@ -422,3 +422,15 @@ class PlaceRemarksModel(models.Model):
     def __str__(self):
         return f'{self.place} - {self.work_date}'
 
+class SysAdModel(models.Model):
+
+    auto_mode_days = models.IntegerField(
+        null=False,
+        blank=False,
+        default=0,
+    )
+
+    validators=[
+        MinValueValidator(0),
+        MaxValueValidator(10),
+    ],

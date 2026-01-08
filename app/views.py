@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect,get_object_or_404
 from django.views.generic.base import TemplateView
-from .models import CustomerModel,CustomerRecordModel,StaffModel,StaffPatternModel, CustomerPatternModel, StaffRecordModel, StaffSessionRecordModel,CustomerSessionRecordModel,CustomerSessionPatternModel,TransportPatternModel,StaffSessionPatternModel,TransportRecordModel,WeekdayEnum, PlaceModel, PlaceRemarksModel, TransportMeansEnum,TransportTypeEnum,StaffWorkStatusEnum, CustomerWorkStatusEnum, CurrentStatusStaffEnum,CurrentStatusCustomerEnum, WORK_SESSION_COUNT
-from .forms import CustomerPatternForm,PlaceRemarksForm,StaffForm,StaffRecordForm,CustomerForm,CustomerSessionPatternForm,CustomerSessionRecordForm,StaffSessionRecordForm,TransportPatternForm,TransportRecordForm,StaffSessionPatternForm,CustomerRecordForm,StaffPatternForm,CalendarForm,OutputForm
+from .models import CustomerModel,CustomerRecordModel,StaffModel,StaffPatternModel, CustomerPatternModel, StaffRecordModel, StaffSessionRecordModel,CustomerSessionRecordModel,CustomerSessionPatternModel,TransportPatternModel,StaffSessionPatternModel,TransportRecordModel,WeekdayEnum, PlaceModel, PlaceRemarksModel, SysAdModel, TransportMeansEnum,TransportTypeEnum,StaffWorkStatusEnum, CustomerWorkStatusEnum, CurrentStatusStaffEnum,CurrentStatusCustomerEnum, WORK_SESSION_COUNT
+from .forms import CustomerPatternForm,PlaceRemarksForm,StaffForm,StaffRecordForm,CustomerForm,CustomerSessionPatternForm,CustomerSessionRecordForm,StaffSessionRecordForm,TransportPatternForm,TransportRecordForm,StaffSessionPatternForm,CustomerRecordForm,StaffPatternForm,CalendarForm,OutputForm, SysAdForm
 import datetime
 from dateutil.relativedelta import relativedelta
 from django.http import HttpResponse
@@ -1805,11 +1805,27 @@ def _save_transport_pattern(request, customer, day_value, transport_type):
 def sysad(request):
     calendar_form = CalendarForm(initial_date=timezone.now().date())
 
+    sysad, _ = SysAdModel.objects.get_or_create(pk=1)
+    sysad_form = SysAdForm(instance=sysad)
+
     return render(request,'app/sysad.html', {
             'calendar_form':calendar_form,
+            'sysad_form':sysad_form,
         })
 
-def delete_record(request):
+def sysad_update_auto_mode(request):
+    sysad, _ = SysAdModel.objects.get_or_create(pk=1)
+
+    if request.method == "POST":
+        form = SysAdForm(request.POST, instance=sysad)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "更新しました")
+            return redirect("sysad")
+
+    return redirect("sysad")
+
+def sysad_delete_record(request):
     if request.method == 'POST':
         date = request.POST.get('date')
 
