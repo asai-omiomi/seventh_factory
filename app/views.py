@@ -180,12 +180,14 @@ def _append_place_info(staff_records, customer_records, work_date, info):
             place=place,
             get_member=lambda rcd: rcd.staff,
             session_model=StaffSessionRecordModel,
+            current_status_choices=CurrentStatusStaffEnum.choices
         )
         customer_list = _build_member_list_by_place(
             customer_records,
             place=place,
             get_member=lambda rcd: rcd.customer,
             session_model=CustomerSessionRecordModel,
+            current_status_choices=CurrentStatusCustomerEnum.choices,
             extra_lines_builder=_build_customer_extra_lines,
         ) 
         staff_customer_list = _build_staff_customer_list(staff_list, customer_list)
@@ -194,7 +196,7 @@ def _append_place_info(staff_records, customer_records, work_date, info):
         info.append({
             'place_id': place.id,
             'place_name': place.name,
-            'color': "table-success",
+            'color': "table-warning",
             'staff_list':staff_list,
             'customer_list':customer_list,
             'staff_cusotmer_list': staff_customer_list,
@@ -276,7 +278,7 @@ def _append_no_place_info(
     info.append({
         'place_id': -1,
         'place_name': "場所未設定",
-        'color': "table-warning",
+        'color': "table-secondary",
         'staff_list':staff_list,
         'customer_list':customer_list,
         'staff_cusotmer_list': staff_customer_list,
@@ -288,7 +290,7 @@ def _append_home_info(customer_records, info):
             info=info,
             place_id=-2,
             place_name="在宅",
-            color="table-secondary",
+            color="table-success",
             customer_records=customer_records,
             customer_work_status=CustomerWorkStatusEnum.HOME,
         )
@@ -403,6 +405,7 @@ def _build_member_list_by_place(
     place,
     get_member,
     session_model,
+    current_status_choices,
     extra_lines_builder=None,
 ):
     result = []
@@ -455,7 +458,15 @@ def _build_member_list_by_place(
         }
         if extra_lines_builder:
             transport = extra_lines_builder(rcd)
+
         first_session = sessions[0]
+
+        current_status = first_session.current_status
+
+        status_buttons_modal = _build_status_buttons_modal(
+            current_status_choices,
+            current_status,
+        )
 
         result.append({
             'id': member.id,
@@ -463,9 +474,10 @@ def _build_member_list_by_place(
             'remarks':remarks,
             'scheduled_time':scheduled_time,
             'transport':transport,
-            'current_status': first_session.current_status,
+            'current_status': current_status,
             'current_status_text': first_session.get_current_status_display(),
-            'current_status_btn_class': _status_btn_class(first_session.current_status),
+            'current_status_btn_class': _status_btn_class(current_status),
+            'status_buttons_modal':status_buttons_modal,
             'change_history': rcd.change_history,
         })
 
@@ -473,7 +485,7 @@ def _build_member_list_by_place(
 
 def _status_btn_class(status):
     return {
-        CurrentStatusCustomerEnum.BEFORE:   "btn-outline-primary",
+        CurrentStatusCustomerEnum.BEFORE:   "btn-success",
         CurrentStatusCustomerEnum.WORKING:  "btn-primary",
         CurrentStatusCustomerEnum.FINISHED: "btn-secondary",
         CurrentStatusCustomerEnum.MOVED:    "btn-secondary",
@@ -483,6 +495,22 @@ def _status_btn_class(status):
         # スタッフは↑の中にすべて入っているので、別で定義しなくてよい
 
     }.get(status, "btn-outline-secondary")
+
+def _build_status_buttons_modal(current_status_choices, current_status):
+    buttons = []
+    for value, label in current_status_choices:
+        base_class = _status_btn_class(value)
+
+        if value != current_status:
+            base_class = base_class.replace("btn-", "btn-outline-")
+
+        buttons.append({
+            "value": value,
+            "label": label,
+            "btn_class": base_class,
+        })
+
+    return buttons
 
 def _build_customer_extra_lines(rcd):
 

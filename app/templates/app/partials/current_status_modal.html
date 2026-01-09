@@ -10,27 +10,24 @@
 
       <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
         {% csrf_token %}
-        <div class="modal-body"> 
-          {% for value, label in current_status_choices %}
-          <div class="form-check mt-2">
-            <label class="form-check-label radio-large">
-              <input type="radio" name="current_status" value="{{ value }}" {% if value == member.current_status %} checked {% endif %}>
-              {{ label }}
-            </label>
+        <div class="modal-body">
+          <div class="row g-2">
+            {% for btn in member.status_buttons_modal %}
+            <div class="col-4">
+              <button type="submit" name="current_status" value="{{ btn.value }}" class="btn {{ btn.btn_class }} w-100">
+                {{ btn.label }}
+              </button>
+            </div>
+            {% endfor %}
           </div>
-          {% endfor %}  
         </div>
 
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-primary" name="current_status_edit" value="{{ member.id }}">
-            変更
-          </button>
-          <input type="hidden" name="member_id" value="{{ member.id }}">
-          <input type="hidden" name="place_id" value="{{ place_id }}">
-          <input type="hidden" name="member_type" value="{{ member_type }}">
-          <input type="hidden" name="work_date" value="{{ work_date }}">
-          <input type="hidden" name="prev_status" value="{{ member.current_status }}">
-        </div>
+        <input type="hidden" name="current_status_edit" value="{{ member.id }}">
+        <input type="hidden" name="member_id" value="{{ member.id }}">
+        <input type="hidden" name="place_id" value="{{ place_id }}">
+        <input type="hidden" name="member_type" value="{{ member_type }}">
+        <input type="hidden" name="work_date" value="{{ work_date }}">
+        <input type="hidden" name="prev_status" value="{{ member.current_status }}">
       </form>
     </div>
   </div>
