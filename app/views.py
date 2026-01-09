@@ -119,7 +119,7 @@ def _update_session_current_status(
         content_text = f"[{_get_change_text(prev_status_label, new_status_label)}({place.name})]"
 
         save_change_history(
-            request, 
+            request.user.last_name, 
             record=record, 
             content_text=content_text,
             )
