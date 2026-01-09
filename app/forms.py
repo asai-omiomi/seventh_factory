@@ -30,7 +30,7 @@ class BaseMemberFormMixin():
 
         if 'remarks' in self.fields:
             self.fields['remarks'].widget.attrs.update(
-                {'class': 'remarks', 'rows': 2}
+                {'class': 'remarks w-100', 'rows': 2}
             )
 
 class StaffRecordForm(BaseMemberFormMixin, forms.ModelForm):

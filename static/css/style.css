@@ -2,7 +2,7 @@ h1{
   font-size: 2rem;
 }
 
-input[type="button"], button, .my_button, select{
+input[type="button"], button, select{
   cursor: pointer;
   outline: none;
   appearance: none;
@@ -14,7 +14,7 @@ input[type="button"], button, .my_button, select{
 }
 
 
-input[type="button"], button, .my_button {
+input[type="button"], button {
   background: #efefef;
   border: 1px solid #333;
   padding: 4px 8px;
@@ -29,8 +29,8 @@ select {
   padding: 4px 32px 4px 8px !important;
 }
 
-input[type="text"], input[type="password"]{
-  border: 1px solid black;
+input[type="text"], textarea, input[type="password"]{
+  border: 1px solid black !important;
   border-radius: 4px;
   padding: 4px;
 }
@@ -42,6 +42,11 @@ input[type="text"], input[type="password"]{
 
 form{
   margin: 0;
+}
+
+.remarks {
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
 .nav-link-custom{
