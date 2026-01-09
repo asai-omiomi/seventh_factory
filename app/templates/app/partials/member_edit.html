@@ -80,6 +80,11 @@
                             {% include "app/partials/session_block.html" with forms=day.session_forms label="勤務セッション" %}
                         {% endif %}
                     </div>
+                    <hr class="my-4">
+                    <div>
+                        <div>備考：</div>
+                        {{ day.work_status_form.remarks }}
+                    </div>
                 </div>
             {% endfor %}
         </div>

@@ -865,16 +865,20 @@ def _record_save_common(
         # 通常はここに来ない想定（来るならエラーハンドリング）
         return redirect('info', work_date)        
 
-    # 変更履歴に勤務状態だけを保存するかどうかのフラグ
-    change_history_only_work_status = False
+    # 変更履歴に基本情報だけを保存するかどうかのフラグ
+    change_history_only_basic = False
 
-    # 勤務情報を更新
+    # 基本情報を更新
     for field, value in record_form.cleaned_data.items():
         prev_work_status = record.work_status
+        prev_remarks = record.remarks
         setattr(record, field, value)
         new_work_status = record.work_status
+        new_remarks = record.remarks
         if record.is_work_status_changed_today == False:
             record.is_work_status_changed_today = _is_changed_today(prev_work_status, new_work_status, work_date)
+        if record.is_remarks_changed_today == False:
+            record.is_remarks_changed_today = _is_changed_today(prev_remarks, new_remarks, work_date)        
         record.save()
 
         if prev_work_status != new_work_status:
@@ -894,7 +898,10 @@ def _record_save_common(
                 CustomerWorkStatusEnum.HOME,
                 CustomerWorkStatusEnum.OFF
             ):
-                change_history_only_work_status = True
+                change_history_only_basic = True
+
+        if prev_remarks != new_remarks:    
+            change_text += "["+_get_change_text(prev_remarks,new_remarks)+"]"
 
     # 勤務セッション保存
     for i in range(WORK_SESSION_COUNT):
@@ -944,7 +951,7 @@ def _record_save_common(
             [prev_place, prev_start_time, prev_end_time],
             [new_place, new_start_time, new_end_time]
         )
-        if is_session_changed and change_history_only_work_status == False:
+        if is_session_changed and change_history_only_basic == False:
             prev_text = _build_session_text(prev_place, prev_start_time, prev_end_time)
 
             new_text = _build_session_text(new_place, new_start_time, new_end_time)     
@@ -954,7 +961,7 @@ def _record_save_common(
     # 追加保存（送迎など）
     if extra_save_func:
         extra_change_text = extra_save_func(request, record)
-        if extra_change_text and change_history_only_work_status == False:
+        if extra_change_text and change_history_only_basic == False:
             change_text += extra_change_text
 
     if change_text: 
@@ -1124,7 +1131,7 @@ def place_remarks_save(request, place_id, work_date):
 
     place = get_object_or_404(PlaceModel, pk=place_id)
 
-    place_remarks, created = PlaceRemarksModel.objects.get_or_create(
+    place_remarks, _ = PlaceRemarksModel.objects.get_or_create(
         place=place,
         work_date=work_date,
         defaults={'remarks': ''}
@@ -1423,7 +1430,8 @@ def _save_common(
                         'weekday': day.value,
                     },
                     defaults={
-                        'work_status': ws_cd['work_status']
+                        'work_status': ws_cd['work_status'],
+                        'remarks':ws_cd['remarks']
                     }
                 )
 

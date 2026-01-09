@@ -103,8 +103,8 @@ class BaseRecordModel(models.Model):
         default=False
     )
 
-    remarks = models.CharField(
-        max_length=50,
+    remarks = models.TextField(
+        max_length=200,
         blank=True,
         default=''
     )
@@ -171,8 +171,8 @@ class BasePatternModel(models.Model):
         choices=WeekdayEnum.choices
     )
 
-    remarks = models.CharField(
-        max_length=50,
+    remarks = models.TextField(
+        max_length=200,
         blank=True,
         default=''
     )

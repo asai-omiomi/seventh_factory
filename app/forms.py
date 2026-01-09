@@ -13,42 +13,45 @@ class CustomerForm(forms.ModelForm):
         model = CustomerModel
         fields = ['name']
 
-class StaffRecordForm(forms.ModelForm):
+MEMBER_COMMON_FIELDS = [
+    'work_status',
+    'remarks',
+]
+
+class BaseMemberFormMixin():
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if 'work_status' in self.fields:
+            self.fields['work_status'].widget.attrs.update(
+                {'class': 'work-status'}
+            )
+
+        if 'remarks' in self.fields:
+            self.fields['remarks'].widget.attrs.update(
+                {'class': 'remarks', 'rows': 2}
+            )
+
+class StaffRecordForm(BaseMemberFormMixin, forms.ModelForm):
     class Meta:
         model = StaffRecordModel
-        fields = ['work_status']
-        
-        widgets = {
-            'work_status': forms.Select(attrs={'class': 'work-status'}),        
-        }
+        fields=MEMBER_COMMON_FIELDS
 
-
-class CustomerRecordForm(forms.ModelForm):
+class CustomerRecordForm(BaseMemberFormMixin, forms.ModelForm):
     class Meta:
         model = CustomerRecordModel
-        fields = ['work_status']
-        
-        widgets = {
-            'work_status': forms.Select(attrs={'class': 'work-status'}),        
-        }
+        fields=MEMBER_COMMON_FIELDS
 
-class StaffPatternForm(forms.ModelForm):
+class StaffPatternForm(BaseMemberFormMixin, forms.ModelForm):
     class Meta:
         model = StaffPatternModel
-        fields = ['work_status',]
+        fields=MEMBER_COMMON_FIELDS
 
-        widgets = {
-            'work_status':forms.Select(attrs={'class': 'work-status'})
-        }  
-
-class CustomerPatternForm(forms.ModelForm):
+class CustomerPatternForm(BaseMemberFormMixin,forms.ModelForm):
     class Meta:
         model = CustomerPatternModel
-        fields = ['work_status',]
-
-        widgets = {
-            'work_status':forms.Select(attrs={'class': 'work-status'})
-        }  
+        fields=MEMBER_COMMON_FIELDS
 
 SESSION_COMMON_FIELDS = [
     'place',
@@ -56,7 +59,7 @@ SESSION_COMMON_FIELDS = [
     'end_time',
 ]
 
-class BaseSessionFormMixin(forms.ModelForm):
+class BaseSessionFormMixin():
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

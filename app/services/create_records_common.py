@@ -32,30 +32,29 @@ def _get_day(work_date):
         work_date = datetime.datetime.strptime(work_date, "%Y-%m-%d").date()
     return work_date.weekday() + 1
 
-def _resolve_work_status_common(
+def _get_pattern_record(
     *,
-    owner,
+    member,
     work_date,
     pattern_model,
-    owner_field,
-    off_value,
+    member_field,
 ):
     pattern = pattern_model.objects.filter(
         **{
-            owner_field: owner,
+            member_field: member,
             'weekday': _get_day(work_date),
         }
     ).first()
 
-    return pattern.work_status if pattern else off_value
+    return pattern
 
 def _create_record_from_pattern_common(
     *,
     user_name,
-    owner,
+    member,
     work_date,
     record_model,
-    owner_field,
+    member_field,
     work_status_pattern_model,
     off_value,
     session_pattern_model,
@@ -64,22 +63,22 @@ def _create_record_from_pattern_common(
 ):
     with transaction.atomic():
         # 勤務ステータス解決
-        work_status = _resolve_work_status_common(
-            owner=owner,
+        prcd = _get_pattern_record(
+            member=member,
             work_date=work_date,
             pattern_model=work_status_pattern_model,
-            owner_field=owner_field,
-            off_value=off_value,
+            member_field=member_field,
         )
 
         # レコード作成 or 更新
-        rcd, created = record_model.objects.update_or_create(
+        rcd, _ = record_model.objects.update_or_create(
             **{
-                owner_field: owner,
+                member_field: member,
                 'work_date': work_date,
             },
             defaults={
-                'work_status': work_status,
+                'work_status': prcd.work_status if prcd else off_value,
+                'remarks': prcd.remarks if prcd else ""
             }
         )
 
@@ -93,7 +92,7 @@ def _create_record_from_pattern_common(
         # 勤務セッション作成
         _create_work_sessions_from_pattern_common(
             record=rcd,
-            owner_field=owner_field,
+            member_field=member_field,
             pattern_model=session_pattern_model,
             session_record_model=session_record_model,
         )
@@ -123,15 +122,15 @@ def save_change_history(
 def _create_work_sessions_from_pattern_common(
     *,
     record,
-    owner_field,
+    member_field,
     pattern_model,
     session_record_model,
 ):
-    owner = getattr(record, owner_field)
+    member = getattr(record, member_field)
 
     patterns = pattern_model.objects.filter(
         **{
-            owner_field: owner,
+            member_field: member,
             'weekday': _get_day(record.work_date),
         }
     )
@@ -155,9 +154,9 @@ def _create_records_from_pattern_common(
     *,
     user_name,
     work_date,
-    owner_model,
+    member_model,
     record_model,
-    owner_field,
+    member_field,
     work_status_pattern_model,
     off_value,
     session_pattern_model,
@@ -165,15 +164,15 @@ def _create_records_from_pattern_common(
     with_transport=False,
     order_field='order',
 ):
-    owners = owner_model.objects.all().order_by(order_field)
+    owners = member_model.objects.all().order_by(order_field)
 
-    for owner in owners:
+    for member in owners:
         _create_record_from_pattern_common(
             user_name=user_name,
-            owner=owner,
+            member=member,
             work_date=work_date,
             record_model=record_model,
-            owner_field=owner_field,
+            member_field=member_field,
             work_status_pattern_model=work_status_pattern_model,
             off_value=off_value,
             session_pattern_model=session_pattern_model,
@@ -187,9 +186,9 @@ def create_records(user_name, work_date):
     _create_records_from_pattern_common(
         user_name=user_name,
         work_date=work_date,
-        owner_model=StaffModel,
+        member_model=StaffModel,
         record_model=StaffRecordModel,
-        owner_field='staff',
+        member_field='staff',
         work_status_pattern_model=StaffPatternModel,
         off_value=StaffWorkStatusEnum.OFF,
         session_pattern_model=StaffSessionPatternModel,
@@ -201,9 +200,9 @@ def create_records(user_name, work_date):
     _create_records_from_pattern_common(
         user_name=user_name,
         work_date=work_date,
-        owner_model=CustomerModel,
+        member_model=CustomerModel,
         record_model=CustomerRecordModel,
-        owner_field='customer',
+        member_field='customer',
         work_status_pattern_model=CustomerPatternModel,
         off_value=CustomerWorkStatusEnum.OFF,
         session_pattern_model=CustomerSessionPatternModel,
