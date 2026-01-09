@@ -194,7 +194,7 @@ def _append_place_info(staff_records, customer_records, work_date, info):
         info.append({
             'place_id': place.id,
             'place_name': place.name,
-            'color': "table-secondary",
+            'color': "table-success",
             'staff_list':staff_list,
             'customer_list':customer_list,
             'staff_cusotmer_list': staff_customer_list,
@@ -241,7 +241,6 @@ def _build_member_list_without_place(
                     'id': member.id,
                     'name': name,
                     'remarks':remarks,
-                    'display': "",
                     'change_history':rcd.change_history,
                 })
 
@@ -289,7 +288,7 @@ def _append_home_info(customer_records, info):
             info=info,
             place_id=-2,
             place_name="在宅",
-            color="table-success",
+            color="table-secondary",
             customer_records=customer_records,
             customer_work_status=CustomerWorkStatusEnum.HOME,
         )
@@ -393,7 +392,6 @@ def _build_member_list_by_work_status(
                 'id': member.id,
                 'name': name,
                 'remarks':remarks,
-                'display': '',
                 'change_history':rcd.change_history,
             })
 
@@ -434,30 +432,37 @@ def _build_member_list_by_place(
             'changed':rcd.is_remarks_changed_today
         }
 
-        lines = []
+        scheduled_time_list = []
+        scheduled_time_changed = False
 
         for s in sessions:
 
             name['changed'] = s.is_place_changed_today
 
             if s.start_time or s.end_time:
-                lines.append({
-                    'text': "[予定]" + _time_text(s.start_time, s.end_time),
-                    'changed': s.is_time_changed_today,
-                })
+                scheduled_time_list.append(_time_text(s.start_time, s.end_time))
+                if s.is_time_changed_today:
+                    scheduled_time_changed = True
 
+        scheduled_time = {
+            'text':" ".join(scheduled_time_list),
+            'changed':scheduled_time_changed
+        }
+
+        transport = {
+            'text':"",
+            'changed':False
+        }
         if extra_lines_builder:
-            for extra in extra_lines_builder(rcd):
-                lines.append(extra)
-
-        # current_status は session 側から取る
+            transport = extra_lines_builder(rcd)
         first_session = sessions[0]
 
         result.append({
             'id': member.id,
             'name': name,
             'remarks':remarks,
-            'display': lines,
+            'scheduled_time':scheduled_time,
+            'transport':transport,
             'current_status': first_session.current_status,
             'current_status_text': first_session.get_current_status_display(),
             'current_status_btn_class': _status_btn_class(first_session.current_status),
@@ -480,7 +485,8 @@ def _status_btn_class(status):
     }.get(status, "btn-outline-secondary")
 
 def _build_customer_extra_lines(rcd):
-    lines = []
+
+    text = ""
 
     for t_type in TransportTypeEnum:
         transport = TransportRecordModel.objects.filter(
@@ -492,7 +498,7 @@ def _build_customer_extra_lines(rcd):
             continue
 
         label = t_type.label
-        text = f"[{label}] {transport.get_transport_means_display() or ''}"
+        text += f"[{label}] {transport.get_transport_means_display() or ''}"
 
         if transport.transport_means == TransportMeansEnum.TRANSFER:
             if transport.staff:
@@ -502,12 +508,12 @@ def _build_customer_extra_lines(rcd):
             if transport.remarks:
                 text += f" {transport.remarks}"
 
-        lines.append({
-            'text': text,
-            'changed': transport.is_changed_today,
-        })
+        text += " "
 
-    return lines
+    return {
+        'text': text,
+        'changed': transport.is_changed_today,        
+    }
     
 def _build_remarks(place=None, work_date=None):
     if not place:
@@ -1129,21 +1135,19 @@ def place_remarks_save(request, place_id, work_date):
 
     action = request.POST.get('action')
 
-    if action == 'cancel':
-        return
+    if action == 'save':
+        place = get_object_or_404(PlaceModel, pk=place_id)
 
-    place = get_object_or_404(PlaceModel, pk=place_id)
+        place_remarks, _ = PlaceRemarksModel.objects.get_or_create(
+            place=place,
+            work_date=work_date,
+            defaults={'remarks': ''}
+        )
 
-    place_remarks, _ = PlaceRemarksModel.objects.get_or_create(
-        place=place,
-        work_date=work_date,
-        defaults={'remarks': ''}
-    )
-
-    form = PlaceRemarksForm(request.POST, instance=place_remarks)
-        
-    if form.is_valid():
-        place_remarks.save()
+        form = PlaceRemarksForm(request.POST, instance=place_remarks)
+            
+        if form.is_valid():
+            place_remarks.save()
 
     return redirect('info', work_date=work_date)
 

@@ -26,14 +26,14 @@ class TransportMeansEnum(models.IntegerChoices):
 class CurrentStatusStaffEnum(models.IntegerChoices):
     BEFORE      = 0, "出勤前"
     WORKING     = 1, "勤務中"
-    FINISHED    = 5, "退勤"
+    FINISHED    = 5, "退勤済"
     MOVED       = 7, "移動済"
     ABSENT      = 9, "休み"
 
 class CurrentStatusCustomerEnum(models.IntegerChoices):
     BEFORE      = 0, "通所前"
     WORKING     = 1, "勤務中"
-    FINISHED    = 5, "退勤"
+    FINISHED    = 5, "退勤済"
     MOVED       = 7, "移動済"
     HOME        = 8, "在宅"
     ABSENT      = 9, "休み"

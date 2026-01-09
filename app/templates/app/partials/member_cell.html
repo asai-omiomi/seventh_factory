@@ -18,6 +18,11 @@
             alt=""
             class="eye_icon_img">
         </button>
+        {% if member_type == 'staff' %}
+        <img src="{% static 'images/staff.png' %}"
+            alt=""
+            class="staff_icon_img">
+        {% endif %}
     </div>
 
     <div class="d-flex gap-1 align-items-center">
@@ -44,11 +49,17 @@
     </div>
 </div>
 
-{% for line in member.display %}
-<div class="{% if line.changed %}text-danger{% endif %}">
-    {{ line.text }}
+{% if member.scheduled_time.text %}
+<div class="{% if member.scheduled_time.changed %}text-danger{% endif %}">
+    (予定:{{ member.scheduled_time.text }})
 </div>
-{% endfor %}
+{% endif %}
+
+{% if member.transport.text %}
+<div class="{% if member.transport.changed %}text-danger{% endif %}">
+    {{ member.transport.text }}
+</div>
+{% endif %}
 
 <div class="{% if member.remarks.changed %}text-danger{% endif %}">
     {{ member.remarks.text }}

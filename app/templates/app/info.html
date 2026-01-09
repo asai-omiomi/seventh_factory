@@ -100,10 +100,29 @@
                     {% if info.staff_cusotmer_list %}
                     <!-- 場所名 -->
                     <tr class="{{info.color}}">
-                        <td class="fw-bold">
+                        <td class="fs-5 fw-bold">
                             {{ info.place_name }}
                         </td>
                     </tr>
+                    <!-- 備考を場所ごとに1行で表示 -->
+                    {% if info.place_id > 0 %}
+                    <tr class="{{info.color}}">
+                        <td>
+                            <div class="d-flex justify-content-between">
+                                <div class="mb-1 fst-italic">
+                                    [作業内容など]
+                                    {{ info.remarks | linebreaksbr }}
+                                </div>
+                                <form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
+                                    {% csrf_token %} 
+                                    <button id="place_remarks_edit_btn-{{ info.place_id }}" class="scroll-target btn-sm text-nowrap" type="submit" name="place_remarks_edit" value="{{ info.place_id }}"> 
+                                        編集 
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>    
+                    {% endif %}
                     {% for staff in info.staff_list %}
                     <tr>
                         <td>
@@ -118,25 +137,6 @@
                         </td>
                     </tr>
                     {% endfor %}
-                    <!-- 備考を場所ごとの下に1行で表示 -->
-                    {% if info.place_id > 0 %}
-                    <tr>
-                        <td>
-                            <div class="d-flex justify-content-between">
-                                <div class="mb-1">
-                                    [備考]
-                                    {{ info.remarks | linebreaksbr }}
-                                </div>
-                                <form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
-                                    {% csrf_token %} 
-                                    <button id="place_remarks_edit_btn-{{ info.place_id }}" class="scroll-target btn-sm text-nowrap" type="submit" name="place_remarks_edit" value="{{ info.place_id }}"> 
-                                        編集 
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>    
-                    {% endif %}
                     {% endif %}
                     {% endfor %}
                     </tbody>
