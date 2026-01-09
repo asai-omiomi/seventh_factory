@@ -26,7 +26,7 @@
     </div>
 
     <div class="d-flex gap-1 align-items-center">
-        {% if info.place_id > 0 %}
+        {% if place_info.place_id > 0 %}
         <button type="button"
                 id="current_status_edit-{{ member_type }}-{{ member.id }}"
                 class="btn btn-sm {{ member.current_status_btn_class }} scroll-save"
@@ -49,10 +49,14 @@
     </div>
 </div>
 
+{% if member.record_time %}
+    <span class="text-danger">{{member.record_time}}</span>
+{% endif %}
+
 {% if member.scheduled_time.text %}
-<div class="{% if member.scheduled_time.changed %}text-danger{% endif %}">
+<span class="{% if member.scheduled_time.changed %}text-danger{% endif %}">
     (予定:{{ member.scheduled_time.text }})
-</div>
+</span>
 {% endif %}
 
 {% if member.transport.text %}

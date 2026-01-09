@@ -18,7 +18,12 @@ MEMBER_COMMON_FIELDS = [
     'remarks',
 ]
 
-class BaseMemberFormMixin():
+RECORD_COMMON_FIELDS = [
+    'clock_in_time',
+    'clock_out_time',
+]
+
+class BaseMemberFormMixin:
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -33,15 +38,29 @@ class BaseMemberFormMixin():
                 {'class': 'remarks w-100', 'rows': 2}
             )
 
-class StaffRecordForm(BaseMemberFormMixin, forms.ModelForm):
+class BaseRecordFormMixin:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        for field in ['clock_in_time', 'clock_out_time']:
+            if field in self.fields:
+                self.fields[field].widget = forms.TimeInput(
+                    attrs={
+                        'type': 'time',
+                        'class': 'clock_time',
+                    }
+                )
+
+
+class StaffRecordForm(BaseMemberFormMixin, BaseRecordFormMixin, forms.ModelForm):
     class Meta:
         model = StaffRecordModel
-        fields=MEMBER_COMMON_FIELDS
+        fields=MEMBER_COMMON_FIELDS + RECORD_COMMON_FIELDS
 
-class CustomerRecordForm(BaseMemberFormMixin, forms.ModelForm):
+class CustomerRecordForm(BaseMemberFormMixin, BaseRecordFormMixin, forms.ModelForm):
     class Meta:
         model = CustomerRecordModel
-        fields=MEMBER_COMMON_FIELDS
+        fields=MEMBER_COMMON_FIELDS + RECORD_COMMON_FIELDS
 
 class StaffPatternForm(BaseMemberFormMixin, forms.ModelForm):
     class Meta:

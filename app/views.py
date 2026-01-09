@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect,get_object_or_404
 from django.views.generic.base import TemplateView
-from .models import CustomerModel,CustomerRecordModel,StaffModel,StaffPatternModel, CustomerPatternModel, StaffRecordModel, StaffSessionRecordModel,CustomerSessionRecordModel,CustomerSessionPatternModel,TransportPatternModel,StaffSessionPatternModel,TransportRecordModel,WeekdayEnum, PlaceModel, PlaceRemarksModel, SysAdModel, TransportMeansEnum,TransportTypeEnum,StaffWorkStatusEnum, CustomerWorkStatusEnum, CurrentStatusStaffEnum,CurrentStatusCustomerEnum, WORK_SESSION_COUNT
+from .models import CustomerModel,CustomerRecordModel,StaffModel,StaffPatternModel, CustomerPatternModel, StaffRecordModel, StaffSessionRecordModel,CustomerSessionRecordModel,CustomerSessionPatternModel,TransportPatternModel,StaffSessionPatternModel,TransportRecordModel,WeekdayEnum, PlaceModel, PlaceRemarksModel, SysAdModel, TransportMeansEnum,TransportTypeEnum,StaffWorkStatusEnum, CustomerWorkStatusEnum, CurrentStatusEnum, WORK_SESSION_COUNT
 from .forms import CustomerPatternForm,PlaceRemarksForm,StaffForm,StaffRecordForm,CustomerForm,CustomerSessionPatternForm,CustomerSessionRecordForm,StaffSessionRecordForm,TransportPatternForm,TransportRecordForm,StaffSessionPatternForm,CustomerRecordForm,StaffPatternForm,CalendarForm,OutputForm, SysAdForm
 import datetime
 from dateutil.relativedelta import relativedelta
@@ -34,8 +34,8 @@ def info(request, work_date):
         'calendar_form':calendar_form,
         'info': info,
         'transport_table_rows': transport_table_rows, 
-        'current_status_staff_choices': CurrentStatusStaffEnum.choices,
-        'current_status_customer_choices': CurrentStatusCustomerEnum.choices,
+        'current_status_staff_choices': staff_current_status_choices(),
+        'current_status_customer_choices': customer_current_status_choices(),
         })
 
 def _update_session_current_status(
@@ -44,24 +44,24 @@ def _update_session_current_status(
     member_type,
     member_id,
     work_date,
-    place_id,
     prev_status,
     new_status,
 ):
+    special_statuses = [CurrentStatusEnum.HOME, CurrentStatusEnum.ABSENT]
+
     if member_type == "staff":
         record = StaffRecordModel.objects.get(
             staff_id=member_id,
             work_date=work_date,
         )
         session_model = StaffSessionRecordModel
-        special_statuses = [CurrentStatusStaffEnum.ABSENT]
-        record_status_mapping = {
-            CurrentStatusStaffEnum.ABSENT: StaffWorkStatusEnum.OFF
-        }
-        initial_status = CurrentStatusStaffEnum.BEFORE
 
-        prev_status_label = CurrentStatusStaffEnum(prev_status).label
-        new_status_label = CurrentStatusStaffEnum(new_status).label
+        record_status_mapping = {
+            CurrentStatusEnum.ABSENT: StaffWorkStatusEnum.OFF
+        }
+
+        prev_status_label = dict(staff_current_status_choices()).get(prev_status)
+        new_status_label = dict(staff_current_status_choices()).get(prev_status_label)
 
     elif member_type == "customer":
         record = CustomerRecordModel.objects.get(
@@ -69,30 +69,32 @@ def _update_session_current_status(
             work_date=work_date,
         )
         session_model = CustomerSessionRecordModel
-        special_statuses = [CurrentStatusCustomerEnum.HOME, CurrentStatusCustomerEnum.ABSENT]
+        
         record_status_mapping = {
-            CurrentStatusCustomerEnum.HOME: CustomerWorkStatusEnum.HOME,
-            CurrentStatusCustomerEnum.ABSENT: CustomerWorkStatusEnum.OFF
+            CurrentStatusEnum.HOME: CustomerWorkStatusEnum.HOME,
+            CurrentStatusEnum.ABSENT: CustomerWorkStatusEnum.OFF
         }
-        initial_status = CurrentStatusCustomerEnum.BEFORE
 
-        prev_status_label = CurrentStatusCustomerEnum(prev_status).label
-        new_status_label = CurrentStatusCustomerEnum(new_status).label
+        prev_status_label = dict(customer_current_status_choices()).get(prev_status)
+        new_status_label = dict(customer_current_status_choices()).get(prev_status_label)
 
     else:
         raise ValueError("invalid member_type")
     
-    if new_status not in special_statuses:
-        # 通常の更新：current_status のみ
-        sessions = session_model.objects.filter(
-            record=record,
-            place_id=place_id,
-        )
+    # 更新
+    record.current_status = new_status
 
-        for session in sessions:
-            prev_status = session.current_status
-            session.current_status = new_status
-            session.save()
+    if new_status not in special_statuses:
+        # 通常の更新
+        if new_status == CurrentStatusEnum.WORKING:
+            if record.clock_in_time is None:
+                record.clock_in_time = timezone.localtime().replace(second=0, microsecond=0)
+
+        elif new_status == CurrentStatusEnum.FINISHED:
+            if record.clock_out_time is None:
+                record.clock_out_time = timezone.localtime().replace(second=0, microsecond=0)           
+
+        record.save()
 
     else:
         # 在宅・休みの場合:全セッションを初期化
@@ -101,22 +103,20 @@ def _update_session_current_status(
         )
 
         sessions.update(
-            current_status=initial_status,
             place=None,
             start_time=None,
             end_time=None
         )
 
-        # recordModel の work_status を更新
         record.work_status = record_status_mapping[new_status]
         if record.is_work_status_changed_today == False:
             record.is_work_status_changed_today = _is_changed_today(prev_status, new_status, work_date)
-        record.save()
+
+    record.save()
 
     # 変更履歴を保存
     if new_status != prev_status:
-        place = PlaceModel.objects.filter(pk=place_id).first()
-        content_text = f"[{_get_change_text(prev_status_label, new_status_label)}({place.name})]"
+        content_text = f"[{_get_change_text(prev_status_label, new_status_label)}]"
 
         save_change_history(
             request.user.last_name, 
@@ -180,17 +180,16 @@ def _append_place_info(staff_records, customer_records, work_date, info):
             place=place,
             get_member=lambda rcd: rcd.staff,
             session_model=StaffSessionRecordModel,
-            current_status_choices=CurrentStatusStaffEnum.choices
+            current_status_choices=staff_current_status_choices()
         )
         customer_list = _build_member_list_by_place(
             customer_records,
             place=place,
             get_member=lambda rcd: rcd.customer,
             session_model=CustomerSessionRecordModel,
-            current_status_choices=CurrentStatusCustomerEnum.choices,
+            current_status_choices=customer_current_status_choices(),
             extra_lines_builder=_build_customer_extra_lines,
         ) 
-        staff_customer_list = _build_staff_customer_list(staff_list, customer_list)
         remarks = _build_remarks(place, work_date)
 
         info.append({
@@ -199,7 +198,6 @@ def _append_place_info(staff_records, customer_records, work_date, info):
             'color': "table-warning",
             'staff_list':staff_list,
             'customer_list':customer_list,
-            'staff_cusotmer_list': staff_customer_list,
             'remarks': remarks,
         })  
 
@@ -270,18 +268,12 @@ def _append_no_place_info(
     if not staff_list and not customer_list:
         return  # 空なら追加しない
 
-    staff_customer_list = _build_staff_customer_list(
-        staff_list,
-        customer_list
-    )
-
     info.append({
         'place_id': -1,
         'place_name': "場所未設定",
         'color': "table-secondary",
         'staff_list':staff_list,
         'customer_list':customer_list,
-        'staff_cusotmer_list': staff_customer_list,
         'remarks': "",
     })   
 
@@ -338,18 +330,12 @@ def _append_status_info(
             work_status=customer_work_status,
         )
 
-    staff_customer_list = _build_staff_customer_list(
-        staff_list or None,
-        customer_list or None,
-    )
-
     info.append({
         'place_id': place_id,
         'place_name': place_name,
         'color': color,
         'staff_list':staff_list,
         'customer_list':customer_list,
-        'staff_cusotmer_list': staff_customer_list,
         'remarks': "",
     })
 
@@ -430,10 +416,7 @@ def _build_member_list_by_place(
             'changed':rcd.is_work_status_changed_today
         }
 
-        remarks = {
-            'text':rcd.remarks,
-            'changed':rcd.is_remarks_changed_today
-        }
+        record_time = _time_text(rcd.clock_in_time, rcd.clock_out_time)
 
         scheduled_time_list = []
         scheduled_time_changed = False
@@ -459,9 +442,12 @@ def _build_member_list_by_place(
         if extra_lines_builder:
             transport = extra_lines_builder(rcd)
 
-        first_session = sessions[0]
+        remarks = {
+            'text':rcd.remarks,
+            'changed':rcd.is_remarks_changed_today
+        }
 
-        current_status = first_session.current_status
+        current_status = rcd.current_status
 
         status_buttons_modal = _build_status_buttons_modal(
             current_status_choices,
@@ -473,9 +459,10 @@ def _build_member_list_by_place(
             'name': name,
             'remarks':remarks,
             'scheduled_time':scheduled_time,
+            'record_time':record_time,
             'transport':transport,
             'current_status': current_status,
-            'current_status_text': first_session.get_current_status_display(),
+            'current_status_text': dict(current_status_choices).get(current_status),
             'current_status_btn_class': _status_btn_class(current_status),
             'status_buttons_modal':status_buttons_modal,
             'change_history': rcd.change_history,
@@ -483,16 +470,30 @@ def _build_member_list_by_place(
 
     return result
 
+def staff_current_status_choices():
+    return [
+        (CurrentStatusEnum.BEFORE, "出勤前"),
+        (CurrentStatusEnum.WORKING, "勤務中"),
+        (CurrentStatusEnum.FINISHED, "退勤済"),
+        (CurrentStatusEnum.ABSENT, "休み"),
+    ]
+
+def customer_current_status_choices():
+    return [
+        (CurrentStatusEnum.BEFORE, "通所前"),
+        (CurrentStatusEnum.WORKING, "勤務中"),
+        (CurrentStatusEnum.FINISHED, "退勤済"),
+        (CurrentStatusEnum.HOME, "在宅"),
+        (CurrentStatusEnum.ABSENT, "休み"),
+    ]
+
 def _status_btn_class(status):
     return {
-        CurrentStatusCustomerEnum.BEFORE:   "btn-success",
-        CurrentStatusCustomerEnum.WORKING:  "btn-primary",
-        CurrentStatusCustomerEnum.FINISHED: "btn-secondary",
-        CurrentStatusCustomerEnum.MOVED:    "btn-secondary",
-        CurrentStatusCustomerEnum.HOME:     "btn-success",
-        CurrentStatusCustomerEnum.ABSENT:   "btn-danger",
-
-        # スタッフは↑の中にすべて入っているので、別で定義しなくてよい
+        CurrentStatusEnum.BEFORE:   "btn-success",
+        CurrentStatusEnum.WORKING:  "btn-primary",
+        CurrentStatusEnum.FINISHED: "btn-secondary",
+        CurrentStatusEnum.HOME:     "btn-success",
+        CurrentStatusEnum.ABSENT:   "btn-danger",
 
     }.get(status, "btn-outline-secondary")
 
@@ -552,23 +553,6 @@ def _build_remarks(place=None, work_date=None):
         return place_remarks.remarks or ""
     else:
         return ""
-
-
-def _build_staff_customer_list(staff_list, customer_list):
-    
-    # None の場合は空リストに置き換える
-    staff_list = staff_list or []
-    customer_list = customer_list or []
-
-    staff_customer_list = []
-    max_length = max(len(staff_list), len(customer_list))
-
-    for i in range(max_length):
-        staff = staff_list[i] if i < len(staff_list) else None
-        customer = customer_list[i] if i < len(customer_list) else None
-        staff_customer_list.append((staff, customer))
-
-    return staff_customer_list
 
 def _build_transport_table_rows(work_date):
     transports = (
@@ -657,7 +641,6 @@ def _current_status_edit(request):
         member_type=request.POST["member_type"],
         member_id=int(request.POST["member_id"]),
         work_date=request.POST["work_date"],
-        place_id=int(request.POST["place_id"]),
         prev_status=int(request.POST["prev_status"]),
         new_status=int(request.POST["current_status"]),
     )
@@ -918,7 +901,7 @@ def _record_save_common(
         if record.is_work_status_changed_today == False:
             record.is_work_status_changed_today = _is_changed_today(prev_work_status, new_work_status, work_date)
         if record.is_remarks_changed_today == False:
-            record.is_remarks_changed_today = _is_changed_today(prev_remarks, new_remarks, work_date)        
+            record.is_remarks_changed_today = _is_changed_today(prev_remarks, new_remarks, work_date)      
         record.save()
 
         if prev_work_status != new_work_status:

@@ -96,26 +96,26 @@
             <div class="table-responsive-md">
                 <table class="table table-bordered">
                     <tbody>
-                    {% for info in info %}
-                    {% if info.staff_cusotmer_list %}
+                    {% for place_info in info %}
+                    {% if place_info.staff_list or place_info.customer_list %}
                     <!-- 場所名 -->
-                    <tr class="{{info.color}}">
+                    <tr class="{{place_info.color}}">
                         <td class="fs-5 fw-bold">
-                            {{ info.place_name }}
+                            {{ place_info.place_name }}
                         </td>
                     </tr>
                     <!-- 備考を場所ごとに1行で表示 -->
-                    {% if info.place_id > 0 %}
-                    <tr class="{{info.color}}">
+                    {% if place_info.place_id > 0 %}
+                    <tr class="{{place_info.color}}">
                         <td>
                             <div class="d-flex justify-content-between">
                                 <div class="mb-1 fst-italic">
                                     [作業内容など]
-                                    {{ info.remarks | linebreaksbr }}
+                                    {{ place_info.remarks | linebreaksbr }}
                                 </div>
                                 <form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
                                     {% csrf_token %} 
-                                    <button id="place_remarks_edit_btn-{{ info.place_id }}" class="scroll-target btn-sm text-nowrap" type="submit" name="place_remarks_edit" value="{{ info.place_id }}"> 
+                                    <button id="place_remarks_edit_btn-{{ place_info.place_id }}" class="scroll-target btn-sm text-nowrap" type="submit" name="place_remarks_edit" value="{{ place_info.place_id }}"> 
                                         編集 
                                     </button>
                                 </form>
@@ -123,14 +123,14 @@
                         </td>
                     </tr>    
                     {% endif %}
-                    {% for staff in info.staff_list %}
+                    {% for staff in place_info.staff_list %}
                     <tr>
                         <td>
                             {% include "app/partials/member_cell.html" with member=staff member_type="staff" %}
                         </td>
                     </tr>
                     {% endfor %}
-                    {% for customer in info.customer_list %}
+                    {% for customer in place_info.customer_list %}
                     <tr>
                         <td>
                             {% include "app/partials/member_cell.html" with member=customer member_type="customer" %}
@@ -169,24 +169,16 @@
         </div>
     </div>
 
-    {% for info in info %}
-        {% if info.staff_cusotmer_list %}
-            {% with info.staff_cusotmer_list|length as rowspan %}
-                {% for staff, customer in info.staff_cusotmer_list %}
-                    {% if staff or customer %}
-                        {% if staff %}
-                            {% include "app/partials/history_modal.html" with member=staff member_type="staff" %}
-                            {% include "app/partials/current_status_modal.html" with member=staff member_type="staff" current_status_choices=current_status_staff_choices place_id=info.place_id %}
-                        {% endif %}
-                        {% if customer %}
-                            {% include "app/partials/history_modal.html" with member=customer member_type="customer" %}
-                            {% include "app/partials/current_status_modal.html" with member=customer member_type="customer" current_status_choices=current_status_customer_choices place_id=info.place_id %}
-                        {% endif %}
-                    {% endif %}
-                {% endfor %}
-            {% endwith %}
-        {% endif %}
-    {% endfor %}
+        {% for place_info in info %}
+            {% for staff in place_info.staff_list %}
+                    {% include "app/partials/history_modal.html" with member=staff member_type="staff" %}
+                    {% include "app/partials/current_status_modal.html" with member=staff member_type="staff" current_status_choices=current_status_staff_choices place_id=place_info.place_id %}
+            {% endfor %}
+            {% for customer in place_info.customer_list %}
+                    {% include "app/partials/history_modal.html" with member=customer member_type="customer" %}
+                    {% include "app/partials/current_status_modal.html" with member=customer member_type="customer" current_status_choices=current_status_customer_choices place_id=place_info.place_id %}
+            {% endfor %}
+        {% endfor %}
     {% endif %}
 </div>
 

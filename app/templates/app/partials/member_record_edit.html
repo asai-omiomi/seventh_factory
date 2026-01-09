@@ -14,7 +14,13 @@
         <div class="mb-3">日付: {{ work_date }}</div>
 
         <div class="work-fields">
-            <div>勤務形態 {{ record_form.work_status }}</div>
+            <div>勤務形態： {{ record_form.work_status }}</div>
+
+            <div class="toggle-fields">
+                <hr class="my-4">
+                <div>出勤時間：{{ record_form.clock_in_time }}</div>
+                <div class="mt-2">退勤時間：{{ record_form.clock_out_time }}</div>
+            </div>
 
             <hr class="toggle-fields my-4">
 

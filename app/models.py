@@ -23,20 +23,12 @@ class TransportMeansEnum(models.IntegerChoices):
     MOTORCYCLE  = 6, "バイク"
     OTHERS      = 9, "その他"
 
-class CurrentStatusStaffEnum(models.IntegerChoices):
-    BEFORE      = 0, "出勤前"
-    WORKING     = 1, "勤務中"
-    FINISHED    = 5, "退勤済"
-    MOVED       = 7, "移動済"
-    ABSENT      = 9, "休み"
-
-class CurrentStatusCustomerEnum(models.IntegerChoices):
-    BEFORE      = 0, "通所前"
-    WORKING     = 1, "勤務中"
-    FINISHED    = 5, "退勤済"
-    MOVED       = 7, "移動済"
-    HOME        = 8, "在宅"
-    ABSENT      = 9, "休み"
+class CurrentStatusEnum(models.IntegerChoices):
+    BEFORE   = 0, "出勤前 / 通所前"
+    WORKING  = 1, "勤務中"
+    FINISHED = 5, "退勤済"
+    HOME     = 8, "在宅"
+    ABSENT   = 9, "休み"
 
 class TransportTypeEnum(models.IntegerChoices):
     MORNING = 1, '朝'
@@ -93,6 +85,13 @@ class CustomerModel(BaseMemberModel):
 class BaseRecordModel(models.Model):
     work_date = models.DateField()
 
+    work_status = models.IntegerField()
+
+    current_status = models.IntegerField(
+        choices=CurrentStatusEnum.choices,
+        default=CurrentStatusEnum.BEFORE
+    )
+
     change_history = models.CharField(
         max_length=500,
         blank=True,
@@ -112,6 +111,9 @@ class BaseRecordModel(models.Model):
     is_remarks_changed_today = models.BooleanField(
         default=False
     )    
+
+    clock_in_time = models.TimeField(blank=True, null=True)
+    clock_out_time = models.TimeField(blank=True, null=True)
 
     class Meta:
         abstract = True
@@ -341,25 +343,20 @@ class CustomerSessionPatternModel(BaseSessionModel):
     def __str__(self):
         return f'{self.customer} - {self.get_weekday_display()} - 勤務{self.session_no}'
 
-class StaffSessionRecordModel(BaseSessionModel):
+class BaseSessionRecordModel(BaseSessionModel):
+    is_place_changed_today = models.BooleanField(default=False)
+    is_time_changed_today = models.BooleanField(default=False)
+
+    class Meta:
+        abstract = True
+
+
+class StaffSessionRecordModel(BaseSessionRecordModel):
 
     record = models.ForeignKey(
         StaffRecordModel,
         on_delete=models.CASCADE,
         related_name='staff_session_record'
-    )
-
-    current_status = models.IntegerField(
-        choices=CurrentStatusStaffEnum.choices,
-        default=CurrentStatusStaffEnum.BEFORE
-    )
-
-    is_place_changed_today = models.BooleanField(
-        default=False
-    )
-
-    is_time_changed_today = models.BooleanField(
-        default=False
     )
 
     class Meta:
@@ -369,25 +366,12 @@ class StaffSessionRecordModel(BaseSessionModel):
     def __str__(self):
         return f'{self.record} - 勤務{self.session_no}'
     
-class CustomerSessionRecordModel(BaseSessionModel):
+class CustomerSessionRecordModel(BaseSessionRecordModel):
 
     record = models.ForeignKey(
         CustomerRecordModel,
         on_delete=models.CASCADE,
         related_name='customer_session_record'
-    )
-
-    current_status = models.IntegerField(
-        choices=CurrentStatusCustomerEnum.choices,
-        default=CurrentStatusCustomerEnum.BEFORE
-    )
-
-    is_place_changed_today = models.BooleanField(
-        default=False
-    )
-
-    is_time_changed_today = models.BooleanField(
-        default=False
     )
 
     class Meta:
