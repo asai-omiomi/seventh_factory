@@ -35,16 +35,27 @@
             });
         });
     });
+
+    // 日付変更時
+    document.addEventListener("DOMContentLoaded", function () {
+    const dateInput = document.querySelector('#date-form input[type="date"]');
+
+    if (dateInput) {
+        dateInput.addEventListener('change', function () {
+            document.getElementById('date-form').submit();
+        });
+    }
+});
 </script>
 
 <div class="wrapper">
 
-    <form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
+    <form id="date-form" action="{% url 'info_dispatch' work_date=work_date %}" method="post">
         {% csrf_token %}
+        <input type="hidden" name="change_date" value="0">
         <div class="d-flex justify-content-end">
             <div>
                 {{ calendar_form.date }}
-                <button class="btn-sm" type="submit" name="change_date" value="0">更新</button>
             </div>
         </div>
         {% if info %}
