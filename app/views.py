@@ -195,6 +195,8 @@ def _append_place_info(staff_records, customer_records, work_date, info):
             'place_id': place.id,
             'place_name': place.name,
             'color': "table-secondary",
+            'staff_list':staff_list,
+            'customer_list':customer_list,
             'staff_cusotmer_list': staff_customer_list,
             'remarks': remarks,
         })  
@@ -276,6 +278,8 @@ def _append_no_place_info(
         'place_id': -1,
         'place_name': "場所未設定",
         'color': "table-warning",
+        'staff_list':staff_list,
+        'customer_list':customer_list,
         'staff_cusotmer_list': staff_customer_list,
         'remarks': "",
     })   
@@ -342,6 +346,8 @@ def _append_status_info(
         'place_id': place_id,
         'place_name': place_name,
         'color': color,
+        'staff_list':staff_list,
+        'customer_list':customer_list,
         'staff_cusotmer_list': staff_customer_list,
         'remarks': "",
     })
@@ -436,7 +442,7 @@ def _build_member_list_by_place(
 
             if s.start_time or s.end_time:
                 lines.append({
-                    'text': _time_text(s.start_time, s.end_time),
+                    'text': "[予定]" + _time_text(s.start_time, s.end_time),
                     'changed': s.is_time_changed_today,
                 })
 
@@ -1099,12 +1105,9 @@ def _get_change_text(prev, new):
 
 def place_remarks_edit(request, place_id, work_date):
 
-    if request.POST.get('action') != 'save':
-        return redirect('info', work_date=work_date)
-
     place = PlaceModel.objects.get(pk=place_id)
 
-    place_remarks, created = PlaceRemarksModel.objects.get_or_create(
+    place_remarks, _ = PlaceRemarksModel.objects.get_or_create(
         place=place, 
         work_date=work_date,
     )

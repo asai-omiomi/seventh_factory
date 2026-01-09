@@ -95,43 +95,34 @@
         <div class="tab-pane fade show active" id="all-info" role="tabpanel">
             <div class="table-responsive-md">
                 <table class="table table-bordered">
-                    <thead class="table-header text-center table-primary">
-                        <tr>
-                            <th>スタッフ</th>
-                            <th>利用者</th>
-                        </tr>
-                    </thead>
-
                     <tbody>
                     {% for info in info %}
                     {% if info.staff_cusotmer_list %}
                     <!-- 場所名 -->
                     <tr class="{{info.color}}">
-                        <td colspan="2" class="fw-bold">
+                        <td class="fw-bold">
                             {{ info.place_name }}
                         </td>
                     </tr>
-                    {% with info.staff_cusotmer_list|length as rowspan %}
-                    {% for staff, customer in info.staff_cusotmer_list %}
-                    {% if staff or customer %}
+                    {% for staff in info.staff_list %}
                     <tr>
                         <td>
-                            {% if staff %}
                             {% include "app/partials/member_cell.html" with member=staff member_type="staff" %}
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if customer %}
-                            {% include "app/partials/member_cell.html" with member=customer member_type="customer"%}
-                            {% endif %}
                         </td>
                     </tr>
-                    {% endif %}
+                    {% endfor %}
+                    {% for customer in info.customer_list %}
+                    <tr>
+                        <td>
+                            {% include "app/partials/member_cell.html" with member=customer member_type="customer" %}
+                        </td>
+                    </tr>
                     {% endfor %}
                     <!-- 備考を場所ごとの下に1行で表示 -->
                     {% if info.place_id > 0 %}
                     <tr>
-                        <td colspan="2">
+                        <td>
+                            <div class="d-flex justify-content-between">
                                 <div class="mb-1">
                                     [備考]
                                     {{ info.remarks | linebreaksbr }}
@@ -146,7 +137,6 @@
                         </td>
                     </tr>    
                     {% endif %}
-                    {% endwith %}
                     {% endif %}
                     {% endfor %}
                     </tbody>
