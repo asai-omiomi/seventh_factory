@@ -6,12 +6,14 @@ class LoginRequiredMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # ログインを要求しないURLを指定
-        exempt_urls = ['/', '/login/']
-        current_path = request.path
+        # ログイン不要なパス（前方一致）
+        exempt_prefixes = [
+            settings.LOGIN_URL,   # /login/
+            '/static/',
+        ]
 
-        if not request.user.is_authenticated and current_path not in exempt_urls:
-            return redirect(settings.LOGIN_URL)
+        if not request.user.is_authenticated:
+            if not any(request.path.startswith(p) for p in exempt_prefixes):
+                return redirect(settings.LOGIN_URL)
 
-        response = self.get_response(request)
-        return response
+        return self.get_response(request)

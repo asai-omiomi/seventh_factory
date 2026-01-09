@@ -54,7 +54,6 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'app.middleware.LoginRequiredMiddleware',
@@ -296,11 +295,15 @@ SESSION_SAVE_EVERY_REQUEST = True
 # LOGIN_REDIRECT_URL = "/seventh_system/info_today"  # ログイン後のリダイレクト先
 # LOGOUT_REDIRECT_URL = "/seventh_system/login/"  # ログアウト後のリダイレクト先
 
-# # SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+# SESSION_COOKIE_AGE = 60 * 60 * 24 * 10 # セッション有効期限 10日間
+# SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+# SESSION_SAVE_EVERY_REQUEST = True
 
-# # HTTPSが有効かどうか
-# # SECURE_SSL_REDIRECT = True  # HTTPSを強制する場合はTrue
+# SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 
-# # HTTPSプロトコルでクッキーを送信する
-# # SESSION_COOKIE_SECURE = True
-# # CSRF_COOKIE_SECURE = True
+# HTTPSが有効かどうか
+# SECURE_SSL_REDIRECT = True  # HTTPSを強制する場合はTrue
+
+# HTTPSプロトコルでクッキーを送信する
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
