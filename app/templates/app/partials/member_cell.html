@@ -24,6 +24,10 @@
 </div>
 {% endfor %}
 
+<div class="{% if member.remarks.changed %}text-danger{% endif %}">
+    {{ member.remarks.text }}
+</div>
+
 <div class="mt-1 d-flex gap-1">
     {% if info.place_id > 0 %}
     <div style="margin-bottom: 16px;"><!-- formタグ内のボタンとスタイルを合わせるための下マージン -->

@@ -103,7 +103,15 @@ class BaseRecordModel(models.Model):
         default=False
     )
 
-    
+    remarks = models.CharField(
+        max_length=50,
+        blank=True,
+        default=''
+    )
+
+    is_remarks_changed_today = models.BooleanField(
+        default=False
+    )    
 
     class Meta:
         abstract = True
@@ -157,14 +165,29 @@ class CustomerRecordModel(BaseRecordModel):
             )
         ] 
 
-class StaffPatternModel(models.Model):
+class BasePatternModel(models.Model):
+
+    weekday = models.IntegerField(
+        choices=WeekdayEnum.choices
+    )
+
+    remarks = models.CharField(
+        max_length=50,
+        blank=True,
+        default=''
+    )
+
+    class Meta:
+        abstract = True
+
+    def __str__(self):
+        target = getattr(self, 'staff', None) or getattr(self, 'customer', None)
+        return f'{target} - {self.get_weekday_display()}'
+
+class StaffPatternModel(BasePatternModel):
     staff = models.ForeignKey(
         StaffModel,
         on_delete=models.CASCADE,
-    )
-        
-    weekday = models.IntegerField(
-        choices=WeekdayEnum.choices
     )
 
     work_status = models.IntegerField(
@@ -175,18 +198,11 @@ class StaffPatternModel(models.Model):
     class Meta:
         unique_together = ('staff', 'weekday')
         ordering = ['weekday']
-
-    def __str__(self):
-        return f'{self.staff.name} - {self.get_weekday_display()}'
     
-class CustomerPatternModel(models.Model):
+class CustomerPatternModel(BasePatternModel):
     customer = models.ForeignKey(
         CustomerModel,
         on_delete=models.CASCADE,
-    )
-        
-    weekday = models.IntegerField(
-        choices=WeekdayEnum.choices
     )
 
     work_status = models.IntegerField(
@@ -197,9 +213,6 @@ class CustomerPatternModel(models.Model):
     class Meta:
         unique_together = ('customer', 'weekday')
         ordering = ['weekday']
-
-    def __str__(self):
-        return f'{self.customer.name} - {self.get_weekday_display()}'
     
 class BaseTransportModel(models.Model):
     customer = models.ForeignKey(

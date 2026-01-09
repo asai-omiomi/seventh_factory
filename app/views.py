@@ -227,12 +227,18 @@ def _build_member_list_without_place(
             'changed': rcd.is_work_status_changed_today
         }
 
+        remarks = {
+            'text':rcd.remarks,
+            'changed':rcd.is_remarks_changed_today
+        }
+
         # 出勤/通所だけれども場所が1つも設定されていない
         if rcd.work_status == work_status:
             if not _has_any_place_session(rcd, session_model):
                 result.append({
                     'id': member.id,
                     'name': name,
+                    'remarks':remarks,
                     'display': "",
                     'change_history':rcd.change_history,
                 })
@@ -372,10 +378,15 @@ def _build_member_list_by_work_status(
                 'changed':rcd.is_work_status_changed_today
             }
 
+            remarks = {
+                'text':rcd.remarks,
+                'changed':rcd.is_remarks_changed_today
+            }
 
             result.append({
                 'id': member.id,
                 'name': name,
+                'remarks':remarks,
                 'display': '',
                 'change_history':rcd.change_history,
             })
@@ -412,6 +423,11 @@ def _build_member_list_by_place(
             'changed':rcd.is_work_status_changed_today
         }
 
+        remarks = {
+            'text':rcd.remarks,
+            'changed':rcd.is_remarks_changed_today
+        }
+
         lines = []
 
         for s in sessions:
@@ -434,6 +450,7 @@ def _build_member_list_by_place(
         result.append({
             'id': member.id,
             'name': name,
+            'remarks':remarks,
             'display': lines,
             'current_status': first_session.current_status,
             'current_status_text': first_session.get_current_status_display(),
