@@ -10,10 +10,9 @@ import csv
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
 from django.db import transaction
-from django.forms.models import model_to_dict
-from django.db import models
 from django.utils import timezone
 from django.contrib import messages
+from app.services.create_records_common import create_records, save_change_history
 
 class IndexView(TemplateView):
     template_name = 'app/index.html'
@@ -119,7 +118,7 @@ def _update_session_current_status(
         place = PlaceModel.objects.filter(pk=place_id).first()
         content_text = f"[{_get_change_text(prev_status_label, new_status_label)}({place.name})]"
 
-        _save_change_history(
+        save_change_history(
             request, 
             record=record, 
             content_text=content_text,
@@ -148,21 +147,7 @@ def _is_changed(prev, new):
     # 値が異なっていたら変更あり    
     return prev != new
 
-def _save_change_history(
-        request, 
-        *, 
-        record, 
-        content_text): 
-    
-    now = timezone.localtime().strftime("%m/%d %H:%M:%S")
-    user = request.user.last_name
 
-    history_text = (
-        f'[{now}]{content_text} by{user}\n'
-    )
-
-    record.change_history = history_text + record.change_history
-    record.save()
 
 def _build_info(work_date):
 
@@ -574,37 +559,36 @@ def _format_transport(t):
 def info_dispatch(request, work_date):
     assert request.method == 'POST'
 
-    change_date = request.POST.get('change_date')
-    create_records = request.POST.get('create_records')
-    place_remarks_edit = request.POST.get('place_remarks_edit')
-    customer_record_edit = request.POST.get('customer_record_edit')
-    staff_record_edit = request.POST.get('staff_record_edit')
-    create_records = request.POST.get('create_records')
-    create_records_off_day = request.POST.get('create_records_off_day')
-    current_status_edit = request.POST.get('current_status_edit')
+    change_date_flag = request.POST.get('change_date')
+    place_remarks_edit_flag = request.POST.get('place_remarks_edit')
+    customer_record_edit_flag = request.POST.get('customer_record_edit')
+    staff_record_edit_flag = request.POST.get('staff_record_edit')
+    create_records_flag = request.POST.get('create_records')
+    create_records_off_day_flag = request.POST.get('create_records_off_day')
+    current_status_edit_flag = request.POST.get('current_status_edit')
    
-    if change_date:
+    if change_date_flag:
         work_date = request.POST.get('date')
         return redirect('info', work_date)
-    elif create_records:
+    elif create_records_flag:
         work_date = request.POST.get('date')
-        _create_records(request, work_date)
+        create_records(request.user.last_name, work_date)
         return redirect('info', work_date)
-    elif create_records_off_day:
+    elif create_records_off_day_flag:
         _create_records_off_day(work_date)
         return redirect('info', work_date)
-    elif place_remarks_edit:
-        place_id = place_remarks_edit
+    elif place_remarks_edit_flag:
+        place_id = place_remarks_edit_flag
         return redirect('place_remarks_edit', place_id, work_date)
-    elif customer_record_edit:
-        customer_id = customer_record_edit
+    elif customer_record_edit_flag:
+        customer_id = customer_record_edit_flag
         return redirect('customer_record_edit', 
             customer_id=customer_id, work_date=work_date)    
-    elif staff_record_edit:
-        staff_id = staff_record_edit
+    elif staff_record_edit_flag:
+        staff_id = staff_record_edit_flag
         return redirect('staff_record_edit', 
             staff_id=staff_id, work_date=work_date)  
-    elif current_status_edit:
+    elif current_status_edit_flag:
         _current_status_edit(request)
         return redirect('info', work_date=work_date)
     
@@ -619,36 +603,6 @@ def _current_status_edit(request):
         place_id=int(request.POST["place_id"]),
         prev_status=int(request.POST["prev_status"]),
         new_status=int(request.POST["current_status"]),
-    )
-
-def _create_records(request, work_date):
-
-    # staff
-    _create_records_from_pattern_common(
-        request=request,
-        work_date=work_date,
-        owner_model=StaffModel,
-        record_model=StaffRecordModel,
-        owner_field='staff',
-        work_status_pattern_model=StaffPatternModel,
-        off_value=StaffWorkStatusEnum.OFF,
-        session_pattern_model=StaffSessionPatternModel,
-        session_record_model=StaffSessionRecordModel,
-        with_transport=False,
-    )
-
-    # customer
-    _create_records_from_pattern_common(
-        request=request,
-        work_date=work_date,
-        owner_model=CustomerModel,
-        record_model=CustomerRecordModel,
-        owner_field='customer',
-        work_status_pattern_model=CustomerPatternModel,
-        off_value=CustomerWorkStatusEnum.OFF,
-        session_pattern_model=CustomerSessionPatternModel,
-        session_record_model=CustomerSessionRecordModel,
-        with_transport=True,
     )
 
 def _create_records_off_day(work_date):
@@ -679,168 +633,9 @@ def _create_records_off_day(work_date):
                     work_status=CustomerWorkStatusEnum.OFF
                 )
 
-def _create_work_sessions_from_pattern_common(
-    *,
-    record,
-    owner_field,
-    pattern_model,
-    session_record_model,
-):
-    owner = getattr(record, owner_field)
 
-    patterns = pattern_model.objects.filter(
-        **{
-            owner_field: owner,
-            'weekday': _get_day(record.work_date),
-        }
-    )
+  
 
-    if not patterns.exists():
-        return
-
-    with transaction.atomic():
-        for ptn in patterns:
-            session_record_model.objects.update_or_create(
-                record=record,
-                session_no=ptn.session_no,
-                defaults={
-                    'place': ptn.place,
-                    'start_time': ptn.start_time,
-                    'end_time': ptn.end_time,
-                }
-            )
-
-def _get_day(work_date):
-    if isinstance(work_date, str):
-        work_date = datetime.datetime.strptime(work_date, "%Y-%m-%d").date()
-    return work_date.weekday() + 1
-
-def _resolve_work_status_common(
-    *,
-    owner,
-    work_date,
-    pattern_model,
-    owner_field,
-    off_value,
-):
-    pattern = pattern_model.objects.filter(
-        **{
-            owner_field: owner,
-            'weekday': _get_day(work_date),
-        }
-    ).first()
-
-    return pattern.work_status if pattern else off_value
-
-
-def _create_transports_from_pattern(customer_record, transport_type):
-    pattern = TransportPatternModel.objects.filter(
-        customer=customer_record.customer,
-        weekday=_get_day(customer_record.work_date),
-        transport_type = transport_type
-    ).first()
-
-    if not pattern:
-        # パターンがない場合は何もしない
-        return
-
-    with transaction.atomic():
-        obj, created = TransportRecordModel.objects.update_or_create(
-            customer = customer_record.customer,
-            record=customer_record,
-            transport_type = transport_type,
-            defaults={
-                'transport_means': pattern.transport_means,
-                'place': pattern.place,
-                'staff': pattern.staff,
-                'remarks': pattern.remarks,
-            }
-        )    
-def _create_records_from_pattern_common(
-    *,
-    request,
-    work_date,
-    owner_model,
-    record_model,
-    owner_field,
-    work_status_pattern_model,
-    off_value,
-    session_pattern_model,
-    session_record_model,
-    with_transport=False,
-    order_field='order',
-):
-    owners = owner_model.objects.all().order_by(order_field)
-
-    for owner in owners:
-        _create_record_from_pattern_common(
-            request=request,
-            owner=owner,
-            work_date=work_date,
-            record_model=record_model,
-            owner_field=owner_field,
-            work_status_pattern_model=work_status_pattern_model,
-            off_value=off_value,
-            session_pattern_model=session_pattern_model,
-            session_record_model=session_record_model,
-            with_transport=with_transport,
-        )
-
-def _create_record_from_pattern_common(
-    *,
-    request,
-    owner,
-    work_date,
-    record_model,
-    owner_field,
-    work_status_pattern_model,
-    off_value,
-    session_pattern_model,
-    session_record_model,
-    with_transport=False,
-):
-    with transaction.atomic():
-        # 勤務ステータス解決
-        work_status = _resolve_work_status_common(
-            owner=owner,
-            work_date=work_date,
-            pattern_model=work_status_pattern_model,
-            owner_field=owner_field,
-            off_value=off_value,
-        )
-
-        # レコード作成 or 更新
-        rcd, created = record_model.objects.update_or_create(
-            **{
-                owner_field: owner,
-                'work_date': work_date,
-            },
-            defaults={
-                'work_status': work_status,
-            }
-        )
-
-        # 変更履歴
-        _save_change_history(
-            request,
-            record = rcd, 
-            content_text="データを作成しました"
-            )
-
-        # 勤務セッション作成
-        _create_work_sessions_from_pattern_common(
-            record=rcd,
-            owner_field=owner_field,
-            pattern_model=session_pattern_model,
-            session_record_model=session_record_model,
-        )
-
-        # 送迎（必要な場合のみ）
-        if with_transport:
-            _create_transports_from_pattern(rcd, TransportTypeEnum.MORNING)
-            _create_transports_from_pattern(rcd, TransportTypeEnum.RETURN)
-
-    return rcd
 
 def _customer_extra_context(record):
     return {
@@ -1146,8 +941,8 @@ def _record_save_common(
             change_text += extra_change_text
 
     if change_text: 
-        _save_change_history(
-            request,
+        save_change_history(
+            request.user.last_name,
             record=record,
             content_text=change_text,
         )
