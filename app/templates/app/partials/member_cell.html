@@ -1,51 +1,38 @@
 {% load static %}
 
-<div class="d-flex justify-content-between">
-    <div>
-        <div class="d-flex align-items-center">
-            <div class="{% if member.name.changed %}text-danger{% endif %}">
-                {{ member.name.text }}
-            </div>
 
-            <button type="button"
-                    id="{{ member_type }}_change_history-{{ member.id }}"
-                    class="icon-button"
-                    data-bs-toggle="modal"
-                    name="{{ member_type }}_change_history"
-                    data-bs-target="#historyModal-{{ member_type }}-{{ member.id }}"
-                    aria-label="更新情報を表示">
-                <img src="{% static 'images/eye.svg' %}"
-                    alt=""
-                    class="eye_icon_img">
-            </button>
+<div class="d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center">
+        <div class="{% if member.name.changed %}text-danger{% endif %}">
+            {{ member.name.text }}
         </div>
 
-        {% for line in member.display %}
-        <div class="{% if line.changed %}text-danger{% endif %}">
-            {{ line.text }}
-        </div>
-        {% endfor %}
-
-        <div class="{% if member.remarks.changed %}text-danger{% endif %}">
-            {{ member.remarks.text }}
-        </div>
+        <button type="button"
+            id="{{ member_type }}_change_history-{{ member.id }}"
+            class="icon-button"
+            data-bs-toggle="modal"
+            name="{{ member_type }}_change_history"
+            data-bs-target="#historyModal-{{ member_type }}-{{ member.id }}"
+            aria-label="更新情報を表示">
+        <img src="{% static 'images/eye.svg' %}"
+            alt=""
+            class="eye_icon_img">
+        </button>
     </div>
 
-    <div class="mt-1 d-flex gap-1">
+    <div class="d-flex gap-1 align-items-center">
         {% if info.place_id > 0 %}
-        <div style="margin-bottom: 16px;"><!-- formタグ内のボタンとスタイルを合わせるための下マージン -->
-            <button type="button"
-                    id="current_status_edit-{{ member_type }}-{{ member.id }}"
-                    class="btn btn-sm {{ member.current_status_btn_class }} scroll-save"
-                    name="current_status_edit_{{ member_type }}_{{ member.id }}"
-                    data-bs-toggle="modal"
-                    data-bs-target="#statusModal-{{ member_type }}-{{ member.id }}">
-                {{ member.current_status_text }}
-            </button>
-        </div>
+        <button type="button"
+                id="current_status_edit-{{ member_type }}-{{ member.id }}"
+                class="btn btn-sm {{ member.current_status_btn_class }} scroll-save"
+                name="current_status_edit_{{ member_type }}_{{ member.id }}"
+                data-bs-toggle="modal"
+                data-bs-target="#statusModal-{{ member_type }}-{{ member.id }}">
+            {{ member.current_status_text }}
+        </button>
         {% endif %}
         <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
-            {% csrf_token %}
+            {% csrf_token %}        
             <button id="{{ member_type }}_record_edit_btn-{{ member.id }}"
                     class="btn-sm text-nowrap scroll-save"
                     type="submit"
@@ -55,4 +42,14 @@
             </button>
         </form>
     </div>
+</div>
+
+{% for line in member.display %}
+<div class="{% if line.changed %}text-danger{% endif %}">
+    {{ line.text }}
+</div>
+{% endfor %}
+
+<div class="{% if member.remarks.changed %}text-danger{% endif %}">
+    {{ member.remarks.text }}
 </div>

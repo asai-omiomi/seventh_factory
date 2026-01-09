@@ -40,6 +40,10 @@ input[type="text"], input[type="password"]{
     cursor: pointer;
 }
 
+form{
+  margin: 0;
+}
+
 .nav-link-custom{
     color: white !important;
 }
