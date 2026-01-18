@@ -11,6 +11,7 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
 from django.db import transaction
 from django.utils import timezone
+from datetime import timedelta
 from django.contrib import messages
 from app.services.create_records_common import create_records, save_change_history
 
@@ -598,6 +599,7 @@ def _format_transport(t):
     return ' '.join(p for p in parts if p)
 
 def info_dispatch(request, work_date):
+
     assert request.method == 'POST'
 
     change_date_flag = request.POST.get('change_date')
@@ -610,9 +612,8 @@ def info_dispatch(request, work_date):
    
     if change_date_flag:
         work_date = request.POST.get('date')
-        return redirect('info', work_date)
+        return redirect('info', work_date)      
     elif create_records_flag:
-        work_date = request.POST.get('date')
         create_records(request.user.last_name, work_date)
         return redirect('info', work_date)
     elif create_records_off_day_flag:
@@ -672,10 +673,6 @@ def _create_records_off_day(work_date):
                     work_date=work_date,
                     work_status=CustomerWorkStatusEnum.OFF
                 )
-
-
-  
-
 
 def _customer_extra_context(record):
     return {

@@ -12,7 +12,7 @@ urlpatterns = [
     path('info_today/', views.info_today, name='info_today'),  
     path('info/<str:work_date>/', views.info, name='info'),    
     path('info_dispatch/<str:work_date>/', views.info_dispatch, name='info_dispatch'),
-    
+
     path('place_remarks/<int:place_id>/<str:work_date>/edit', views.place_remarks_edit, name='place_remarks_edit'),  
     path('place_remarks/<int:place_id>/<str:work_date>/save', views.place_remarks_save, name='place_remarks_save'),  
 
