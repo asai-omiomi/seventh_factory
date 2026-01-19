@@ -138,7 +138,7 @@ STATICFILES_DIRS = (
 )
 
 LOGIN_URL = "/login/"  # ログインページ
-LOGIN_REDIRECT_URL = "/info_today"  # ログイン後のリダイレクト先
+LOGIN_REDIRECT_URL = "/info"  # ログイン後のリダイレクト先
 LOGOUT_REDIRECT_URL = "/login/"  # ログアウト後のリダイレクト先
 
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 10 # セッション有効期限 10日間
@@ -292,7 +292,7 @@ SESSION_SAVE_EVERY_REQUEST = True
 
 
 # LOGIN_URL = "/seventh_system/login/"  # ログインページ
-# LOGIN_REDIRECT_URL = "/seventh_system/info_today"  # ログイン後のリダイレクト先
+# LOGIN_REDIRECT_URL = "/seventh_system/info"  # ログイン後のリダイレクト先
 # LOGOUT_REDIRECT_URL = "/seventh_system/login/"  # ログアウト後のリダイレクト先
 
 # SESSION_COOKIE_AGE = 60 * 60 * 24 * 10 # セッション有効期限 10日間

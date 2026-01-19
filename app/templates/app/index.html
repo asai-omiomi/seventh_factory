@@ -21,7 +21,7 @@
     </div>
 </form>    
 {% else %}
-<form action="{% url 'info_today' %}" method="get">
+<form action="{% url 'info' %}" method="get">
     {% csrf_token %}
     <div style="text-align: center;">
         <button class="btn-sm" type="submit" class="btn-primary btn-sm">トップページへ</button>

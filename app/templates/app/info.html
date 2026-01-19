@@ -55,7 +55,7 @@
             {{ calendar_form.date }}
             <input type="hidden" name="change_date" value="0">
         </form>
-        <form id="date-form" action="{% url 'info_today' %}" method="get">
+        <form action="{% url 'info' %}" method="get">
             <button class="btn-sm" type="submit">
                 本日
             </button>

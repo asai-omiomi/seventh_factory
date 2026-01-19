@@ -14,14 +14,18 @@ from django.utils import timezone
 from datetime import timedelta
 from django.contrib import messages
 from app.services.create_records_common import create_records, save_change_history
+from datetime import date
 
 class IndexView(TemplateView):
     template_name = 'app/index.html'
 
-def info_today(request):
-    return redirect('info', timezone.localtime().date())
+def info(request, work_date=None):
 
-def info(request, work_date):
+    if work_date:
+        work_date = date.fromisoformat(work_date)
+    else:
+        work_date = timezone.localdate()
+
     calendar_form = CalendarForm(initial_date=work_date)
 
     # 全体情報
