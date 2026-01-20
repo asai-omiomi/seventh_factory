@@ -38,22 +38,27 @@
 
     // 日付変更時
     document.addEventListener("DOMContentLoaded", function () {
-    const dateInput = document.querySelector('#date-form input[type="date"]');
+        const dateInput = document.querySelector('#date-form input[type="date"]');
 
-    if (dateInput) {
+        if (!dateInput) return;
+
         dateInput.addEventListener('change', function () {
-            document.getElementById('date-form').submit();
+            if (!this.value) return;
+
+            // info/<YYYY-MM-DD>/ に遷移
+            const baseUrl = "{% url 'info' work_date='__DATE__' %}";
+            const url = baseUrl.replace('__DATE__', this.value);
+
+            window.location.href = url;
         });
-    }
-});
+    });
+
 </script>
 
 <div class="wrapper">
     <div class="d-flex justify-content-end align-items-center gap-1">
-        <form id="date-form" action="{% url 'info_dispatch' work_date=work_date %}" method="post">
-            {% csrf_token %}
+        <form id="date-form" onsubmit="return false;">
             {{ calendar_form.date }}
-            <input type="hidden" name="change_date" value="0">
         </form>
         <form action="{% url 'info' %}" method="get">
             <button class="btn-sm" type="submit">
@@ -82,18 +87,21 @@
         <h2 class="mt-2">勤務データが存在しません</h2>
         {% if request.user.is_superuser %}
         <hr class="my-4">
-        <form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
+        <form action="{% url 'create_records' work_date=work_date %}" method="post">
             {% csrf_token %}
             <div class="mt-1">
                 <p>利用者・スタッフの曜日別の<br>登録データを元に勤務データを作成する<br>(通常はこちら)</p>
-                <button class="btn-sm" id="id_create_records" type="submit" name="create_records" value="0">
+                <button class="btn-sm" type="submit">
                     実行
                 </button>
             </div>
-            <hr class="my-4">
+        </form>
+        <hr class="my-4">
+        <form action="{% url 'create_records_off_day' work_date=work_date %}" method="post">
+            {% csrf_token %}
             <div class="mt-1">
                 <p>全員休みの勤務データを作成する<br>(祝日・年末年始など)</p>
-                <button class="btn-sm" id="id_create_records_off_day" type="submit" name="create_records_off_day" value="0">
+                <button class="btn-sm" type="submit">
                     実行
                 </button>
             </div>
@@ -130,12 +138,9 @@
                                     [作業内容など]
                                     {{ place_info.remarks | linebreaksbr }}
                                 </div>
-                                <form action="{% url 'info_dispatch' work_date=work_date %}" method="post">
-                                    {% csrf_token %} 
-                                    <button id="place_remarks_edit_btn-{{ place_info.place_id }}" class="scroll-target btn-sm text-nowrap" type="submit" name="place_remarks_edit" value="{{ place_info.place_id }}"> 
-                                        編集 
-                                    </button>
-                                </form>
+                                <button type="button" onclick='location.href="{% url "place_remarks_edit" place_info.place_id work_date %}"'>
+                                    編集
+                                </button>
                             </div>
                         </td>
                     </tr>    
@@ -143,14 +148,14 @@
                     {% for staff in place_info.staff_list %}
                     <tr>
                         <td>
-                            {% include "app/partials/member_cell.html" with member=staff member_type="staff" %}
+                            {% include "app/partials/member_cell.html" with member=staff member_type="staff" edit_url_name="staff_record_edit"%}
                         </td>
                     </tr>
                     {% endfor %}
                     {% for customer in place_info.customer_list %}
                     <tr>
                         <td>
-                            {% include "app/partials/member_cell.html" with member=customer member_type="customer" %}
+                            {% include "app/partials/member_cell.html" with member=customer member_type="customer" edit_url_name="customer_record_edit"%}
                         </td>
                     </tr>
                     {% endfor %}

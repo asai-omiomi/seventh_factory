@@ -8,7 +8,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
 
-      <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
+      <form method="post" action="{% url 'current_status_edit' member.id work_date|date:'Y-m-d' %}">
         {% csrf_token %}
         <div class="modal-body">
           <div class="row g-2">
@@ -22,10 +22,7 @@
           </div>
         </div>
 
-        <input type="hidden" name="current_status_edit" value="{{ member.id }}">
-        <input type="hidden" name="member_id" value="{{ member.id }}">
         <input type="hidden" name="member_type" value="{{ member_type }}">
-        <input type="hidden" name="work_date" value="{{ work_date|date:'Y-m-d' }}">
         <input type="hidden" name="prev_status" value="{{ member.current_status }}">
       </form>
     </div>

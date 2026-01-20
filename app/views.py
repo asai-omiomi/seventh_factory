@@ -52,8 +52,6 @@ def _update_session_current_status(
     prev_status,
     new_status,
 ):
-    
-    # print(type(work_date), work_date)
 
     special_statuses = [CurrentStatusEnum.HOME, CurrentStatusEnum.ABSENT]
 
@@ -69,7 +67,7 @@ def _update_session_current_status(
         }
 
         prev_status_label = dict(staff_current_status_choices()).get(prev_status)
-        new_status_label = dict(staff_current_status_choices()).get(prev_status_label)
+        new_status_label = dict(staff_current_status_choices()).get(new_status)
 
     elif member_type == "customer":
         record = CustomerRecordModel.objects.get(
@@ -84,7 +82,7 @@ def _update_session_current_status(
         }
 
         prev_status_label = dict(customer_current_status_choices()).get(prev_status)
-        new_status_label = dict(customer_current_status_choices()).get(prev_status_label)
+        new_status_label = dict(customer_current_status_choices()).get(new_status)
 
     else:
         raise ValueError("invalid member_type")
@@ -605,83 +603,62 @@ def _format_transport(t):
     ]
     return ' '.join(p for p in parts if p)
 
-def info_dispatch(request, work_date):
+def create_records_view(request, work_date):
+    work_date = date.fromisoformat(work_date)
+    create_records(request.user.last_name, work_date)
+    return redirect('info', work_date)  
 
-    print(type(work_date), work_date)
+def create_records_off_day_view(request, work_date):
+    work_date = date.fromisoformat(work_date)
+    _create_records_off_day(request.user.last_name, work_date)
+    return redirect('info', work_date)   
 
-    assert request.method == 'POST'
-
-    change_date_flag = request.POST.get('change_date')
-    place_remarks_edit_flag = request.POST.get('place_remarks_edit')
-    customer_record_edit_flag = request.POST.get('customer_record_edit')
-    staff_record_edit_flag = request.POST.get('staff_record_edit')
-    create_records_flag = request.POST.get('create_records')
-    create_records_off_day_flag = request.POST.get('create_records_off_day')
-    current_status_edit_flag = request.POST.get('current_status_edit')
-   
-    if change_date_flag:
-        work_date = request.POST.get('date')
-        return redirect('info', work_date)      
-    elif create_records_flag:
-        create_records(request.user.last_name, work_date)
-        return redirect('info', work_date)
-    elif create_records_off_day_flag:
-        _create_records_off_day(work_date)
-        return redirect('info', work_date)
-    elif place_remarks_edit_flag:
-        place_id = place_remarks_edit_flag
-        return redirect('place_remarks_edit', place_id, work_date)
-    elif customer_record_edit_flag:
-        customer_id = customer_record_edit_flag
-        return redirect('customer_record_edit', 
-            customer_id=customer_id, work_date=work_date)    
-    elif staff_record_edit_flag:
-        staff_id = staff_record_edit_flag
-        return redirect('staff_record_edit', 
-            staff_id=staff_id, work_date=work_date)  
-    elif current_status_edit_flag:
-        _current_status_edit(request)
-        return redirect('info', work_date=work_date)
-    
-    return redirect('info', work_date)     
-
-def _current_status_edit(request):
+def current_status_edit(request, member_id, work_date):
     _update_session_current_status(
         request,
         member_type=request.POST["member_type"],
-        member_id=int(request.POST["member_id"]),
-        work_date=request.POST["work_date"],
+        member_id=member_id,
+        work_date=work_date,
         prev_status=int(request.POST["prev_status"]),
         new_status=int(request.POST["current_status"]),
     )
+    return redirect('info', work_date=work_date)
 
-def _create_records_off_day(work_date):
+def _create_records_off_day(user_name, work_date):
     with transaction.atomic():  # まとめてトランザクション
         # --- Staff ---
         for staff in StaffModel.objects.all():
-            record_exists = StaffRecordModel.objects.filter(
+            rcd, created = StaffRecordModel.objects.get_or_create(
                 staff=staff,
-                work_date=work_date
-            ).exists()
-            if not record_exists:
-                StaffRecordModel.objects.create(
-                    staff=staff,
-                    work_date=work_date,
-                    work_status=StaffWorkStatusEnum.OFF
-                )
+                work_date=work_date,
+                defaults={
+                    'work_status': StaffWorkStatusEnum.OFF,
+                }
+            )
+
+            if created:
+                save_change_history(
+                    user_name=user_name,
+                    record=rcd,
+                    content_text="新規作成"
+                )          
 
         # --- Customer ---
         for customer in CustomerModel.objects.all():
-            record_exists = CustomerRecordModel.objects.filter(
+            rcd, created = CustomerRecordModel.objects.get_or_create(
                 customer=customer,
-                work_date=work_date
-            ).exists()
-            if not record_exists:
-                CustomerRecordModel.objects.create(
-                    customer=customer,
-                    work_date=work_date,
-                    work_status=CustomerWorkStatusEnum.OFF
-                )
+                work_date=work_date,
+                defaults={
+                    'work_status': CustomerWorkStatusEnum.OFF,
+                }
+            )
+
+            if created:
+                save_change_history(
+                    user_name=user_name,
+                    record=rcd,
+                    content_text="新規作成"
+                )    
 
 def _customer_extra_context(record):
     return {

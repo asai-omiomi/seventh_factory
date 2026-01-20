@@ -36,16 +36,11 @@
             {{ member.current_status_text }}
         </button>
         {% endif %}
-        <form method="post" action="{% url 'info_dispatch' work_date=work_date %}">
-            {% csrf_token %}        
-            <button id="{{ member_type }}_record_edit_btn-{{ member.id }}"
-                    class="btn-sm text-nowrap scroll-save"
-                    type="submit"
-                    name="{{ member_type }}_record_edit"
-                    value="{{ member.id }}">
-                編集
-            </button>
-        </form>
+        <button type="button"
+                class="btn-sm text-nowrap scroll-save"
+                onclick="location.href='{% url edit_url_name member.id work_date %}'">
+            編集
+        </button>
     </div>
 </div>
 
