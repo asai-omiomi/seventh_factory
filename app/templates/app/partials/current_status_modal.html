@@ -25,7 +25,7 @@
         <input type="hidden" name="current_status_edit" value="{{ member.id }}">
         <input type="hidden" name="member_id" value="{{ member.id }}">
         <input type="hidden" name="member_type" value="{{ member_type }}">
-        <input type="hidden" name="work_date" value="{{ work_date }}">
+        <input type="hidden" name="work_date" value="{{ work_date|date:'Y-m-d' }}">
         <input type="hidden" name="prev_status" value="{{ member.current_status }}">
       </form>
     </div>

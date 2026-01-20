@@ -52,6 +52,9 @@ def _update_session_current_status(
     prev_status,
     new_status,
 ):
+    
+    # print(type(work_date), work_date)
+
     special_statuses = [CurrentStatusEnum.HOME, CurrentStatusEnum.ABSENT]
 
     if member_type == "staff":
@@ -603,6 +606,8 @@ def _format_transport(t):
     return ' '.join(p for p in parts if p)
 
 def info_dispatch(request, work_date):
+
+    print(type(work_date), work_date)
 
     assert request.method == 'POST'
 

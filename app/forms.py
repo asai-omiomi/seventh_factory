@@ -177,7 +177,14 @@ class TransportRecordForm(BaseTransportFormMixin, forms.ModelForm):
         self.fields['staff'].queryset = StaffModel.objects.all().order_by('order')
 
 class CalendarForm(forms.Form):
-    date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}),label='')
+    date = forms.DateField(
+        label='',
+        input_formats=['%Y-%m-%d'],
+        widget=forms.DateInput(
+            attrs={'type': 'date'},
+            format='%Y-%m-%d',
+            ),
+    )
 
     def __init__(self, *args, **kwargs):
         initial_date = kwargs.pop('initial_date', None)
