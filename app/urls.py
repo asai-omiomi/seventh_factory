@@ -14,8 +14,7 @@ urlpatterns = [
     path('info/<str:work_date>/create/', views.create_records_view, name='create_records'),
     path('info/<str:work_date>/create-off-day/', views.create_records_off_day_view, name='create_records_off_day'),
       
-    # path('info/<int:year>-<int:month>-<int:day>/', views.info, name='info'),  
-    # path('info_dispatch/<str:work_date>/', views.info_dispatch, name='info_dispatch'),
+    path('notice/<str:work_date>/save/', views.notice_save, name='notice_save'),
 
     path('place_remarks/<int:place_id>/<str:work_date>/edit/', views.place_remarks_edit, name='place_remarks_edit'),  
     path('place_remarks/<int:place_id>/<str:work_date>/save/', views.place_remarks_save, name='place_remarks_save'),  

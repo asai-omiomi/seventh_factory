@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect,get_object_or_404
 from django.views.generic.base import TemplateView
-from .models import CustomerModel,CustomerRecordModel,StaffModel,StaffPatternModel, CustomerPatternModel, StaffRecordModel, StaffSessionRecordModel,CustomerSessionRecordModel,CustomerSessionPatternModel,TransportPatternModel,StaffSessionPatternModel,TransportRecordModel,WeekdayEnum, PlaceModel, PlaceRemarksModel, SysAdModel, TransportMeansEnum,TransportTypeEnum,StaffWorkStatusEnum, CustomerWorkStatusEnum, CurrentStatusEnum, WORK_SESSION_COUNT
-from .forms import CustomerPatternForm,PlaceRemarksForm,StaffForm,StaffRecordForm,CustomerForm,CustomerSessionPatternForm,CustomerSessionRecordForm,StaffSessionRecordForm,TransportPatternForm,TransportRecordForm,StaffSessionPatternForm,CustomerRecordForm,StaffPatternForm,CalendarForm,OutputForm, SysAdForm
+from .models import CustomerModel,CustomerRecordModel,StaffModel,StaffPatternModel, CustomerPatternModel, StaffRecordModel, StaffSessionRecordModel,CustomerSessionRecordModel,CustomerSessionPatternModel,TransportPatternModel,StaffSessionPatternModel,TransportRecordModel,WeekdayEnum, PlaceModel, PlaceRemarksModel, SysAdModel, DayModel, TransportMeansEnum,TransportTypeEnum,StaffWorkStatusEnum, CustomerWorkStatusEnum, CurrentStatusEnum, WORK_SESSION_COUNT
+from .forms import CustomerPatternForm,PlaceRemarksForm,StaffForm,StaffRecordForm,CustomerForm,CustomerSessionPatternForm,CustomerSessionRecordForm,StaffSessionRecordForm,TransportPatternForm,TransportRecordForm,StaffSessionPatternForm,CustomerRecordForm,StaffPatternForm,CalendarForm,OutputForm, SysAdForm, DayForm
 import datetime
 from dateutil.relativedelta import relativedelta
 from django.http import HttpResponse
@@ -11,7 +11,6 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
 from django.db import transaction
 from django.utils import timezone
-from datetime import timedelta
 from django.contrib import messages
 from app.services.create_records_common import create_records, save_change_history
 from datetime import date
@@ -28,6 +27,10 @@ def info(request, work_date=None):
 
     calendar_form = CalendarForm(initial_date=work_date)
 
+    day, _ = DayModel.objects.get_or_create(work_date=work_date)
+
+    notice_form = DayForm(instance=day)
+
     # 全体情報
     info = _build_info(work_date)
 
@@ -37,6 +40,7 @@ def info(request, work_date=None):
     return render(request,'app/info.html',{
         'work_date':work_date,
         'calendar_form':calendar_form,
+        'notice_form':notice_form,
         'info': info,
         'transport_table_rows': transport_table_rows, 
         'current_status_staff_choices': staff_current_status_choices(),
@@ -152,8 +156,6 @@ def _is_changed(prev, new):
 
     # 値が異なっていたら変更あり    
     return prev != new
-
-
 
 def _build_info(work_date):
 
@@ -602,6 +604,16 @@ def _format_transport(t):
         t.remarks,
     ]
     return ' '.join(p for p in parts if p)
+
+def notice_save(request, work_date):
+    
+    day, _ = DayModel.objects.get_or_create(work_date=work_date)
+
+    notice_form = DayForm(request.POST, instance=day)
+    if notice_form.is_valid():
+        notice_form.save()
+
+    return redirect('info', work_date)
 
 def create_records_view(request, work_date):
     work_date = date.fromisoformat(work_date)

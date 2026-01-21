@@ -431,3 +431,15 @@ class SysAdModel(models.Model):
         MinValueValidator(0),
         MaxValueValidator(10),
     ],
+
+class DayModel(models.Model):
+    work_date = models.DateField()
+
+    notice = models.TextField(
+        max_length=200,
+        blank=True,
+        default=''
+    )    
+
+    def __str__(self):
+        return f'{self.work_date}'

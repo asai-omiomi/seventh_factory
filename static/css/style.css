@@ -109,3 +109,12 @@ form{
 .staff_icon_img{
   height: 24px;
 }
+
+.notice_text_area{
+  width: 92%;
+  height: 50px;
+  border: solid 1px black;
+  border-radius: 4px;
+  padding: 1px 3px;
+}
+

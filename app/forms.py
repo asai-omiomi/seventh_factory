@@ -1,6 +1,6 @@
 # forms.py
 from django import forms
-from .models import StaffModel, StaffRecordModel, CustomerModel, CustomerRecordModel, StaffPatternModel, CustomerPatternModel, TransportPatternModel,StaffSessionPatternModel, CustomerSessionPatternModel, TransportRecordModel,PlaceRemarksModel,StaffSessionRecordModel, CustomerSessionRecordModel, SysAdModel, TransportTypeEnum
+from .models import StaffModel, StaffRecordModel, CustomerModel, CustomerRecordModel, StaffPatternModel, CustomerPatternModel, TransportPatternModel,StaffSessionPatternModel, CustomerSessionPatternModel, TransportRecordModel,PlaceRemarksModel,StaffSessionRecordModel, CustomerSessionRecordModel, SysAdModel, DayModel, TransportTypeEnum
 import datetime
    
 class StaffForm(forms.ModelForm):
@@ -235,3 +235,17 @@ class SysAdForm(forms.ModelForm):
         max_value=10,
         label="自動作成日数",
     )
+
+class DayForm(forms.ModelForm):
+    class Meta:
+        model = DayModel
+        fields = ['notice']
+
+    notice = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'rows': 3,
+            'class': 'form-control',
+        }),
+        required=False
+    )
+    
