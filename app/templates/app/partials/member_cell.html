@@ -38,6 +38,7 @@
         {% endif %}
         <button type="button"
                 class="btn-sm text-nowrap scroll-save"
+                id="member_edit-{{ member_type }}-{{ member.id }}"
                 onclick="location.href='{% url edit_url_name member.id work_date %}'">
             編集
         </button>

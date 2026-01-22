@@ -149,6 +149,11 @@
             <div class="table-responsive-md">
                 <table class="table table-bordered">
                     <tbody>
+                    <tr>
+                        <td class="text-end table-secondary">
+                            利用者数(通所):{{office_customer_number}}
+                        </td>
+                    </tr>
                     {% for place_info in info %}
                     {% if place_info.staff_list or place_info.customer_list %}
                     <!-- 場所名 -->

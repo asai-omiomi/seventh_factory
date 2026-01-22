@@ -33,6 +33,7 @@ def info(request, work_date=None):
 
     # 全体情報
     info = _build_info(work_date)
+    office_customer_number = _get_office_customer_number(work_date)
 
     # 送迎情報
     transport_table_rows = _build_transport_table_rows(work_date)
@@ -42,10 +43,17 @@ def info(request, work_date=None):
         'calendar_form':calendar_form,
         'notice_form':notice_form,
         'info': info,
+        'office_customer_number':office_customer_number,
         'transport_table_rows': transport_table_rows, 
         'current_status_staff_choices': staff_current_status_choices(),
         'current_status_customer_choices': customer_current_status_choices(),
         })
+
+def _get_office_customer_number(work_date):
+    return CustomerRecordModel.objects.filter(
+        work_date=work_date,
+        work_status=CustomerWorkStatusEnum.OFFICE
+        ).count
 
 def _update_session_current_status(
     request,
@@ -170,6 +178,7 @@ def _build_info(work_date):
 
     # 勤務地別を追加
     _append_place_info(staff_records, customer_records, work_date, info)
+
     # 勤務地なしを追加
     _append_no_place_info(staff_records, customer_records, info)
     # 在宅を追加
@@ -936,10 +945,10 @@ def _record_save_common(
         session_no = i + 1
 
         # 既存セッション取得
-        session = session_model.objects.filter(
+        session, _ = session_model.objects.get_or_create(
             record=record,
             session_no=session_no,
-        ).first()
+        )
 
         prev_place = session.place
         prev_start_time = session.start_time
@@ -1049,12 +1058,12 @@ def _save_transport_record(request, record, transport_type):
 
     cd = form.cleaned_data
 
-    # 既存レコード取得（なければ None）
-    transport = TransportRecordModel.objects.filter(
+    # 既存レコード取得（なければ 作成）
+    transport, _ = TransportRecordModel.objects.get_or_create(
         customer=record.customer,
         record=record,
         transport_type=transport_type,
-    ).first()
+    )
     
     prev_transport_means = transport.transport_means
     prev_place = transport.place
