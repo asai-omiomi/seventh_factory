@@ -65,7 +65,7 @@ def _update_session_current_status(
     new_status,
 ):
 
-    special_statuses = [CurrentStatusEnum.HOME, CurrentStatusEnum.ABSENT]
+    # special_statuses = [CurrentStatusEnum.HOME, CurrentStatusEnum.ABSENT]
 
     if member_type == "staff":
         record = StaffRecordModel.objects.get(
@@ -74,9 +74,9 @@ def _update_session_current_status(
         )
         session_model = StaffSessionRecordModel
 
-        record_status_mapping = {
-            CurrentStatusEnum.ABSENT: StaffWorkStatusEnum.OFF
-        }
+        # record_status_mapping = {
+        #     CurrentStatusEnum.ABSENT: StaffWorkStatusEnum.OFF
+        # }
 
         prev_status_label = dict(staff_current_status_choices()).get(prev_status)
         new_status_label = dict(staff_current_status_choices()).get(new_status)
@@ -88,10 +88,10 @@ def _update_session_current_status(
         )
         session_model = CustomerSessionRecordModel
         
-        record_status_mapping = {
-            CurrentStatusEnum.HOME: CustomerWorkStatusEnum.HOME,
-            CurrentStatusEnum.ABSENT: CustomerWorkStatusEnum.OFF
-        }
+        # record_status_mapping = {
+        #     CurrentStatusEnum.HOME: CustomerWorkStatusEnum.HOME,
+        #     CurrentStatusEnum.ABSENT: CustomerWorkStatusEnum.OFF
+        # }
 
         prev_status_label = dict(customer_current_status_choices()).get(prev_status)
         new_status_label = dict(customer_current_status_choices()).get(new_status)
@@ -102,33 +102,33 @@ def _update_session_current_status(
     # 更新
     record.current_status = new_status
 
-    if new_status not in special_statuses:
+    # if new_status not in special_statuses:
         # 通常の更新
-        if new_status == CurrentStatusEnum.WORKING:
-            if record.clock_in_time is None:
-                record.clock_in_time = timezone.localtime().replace(second=0, microsecond=0)
+    if new_status == CurrentStatusEnum.WORKING:
+        if record.clock_in_time is None:
+            record.clock_in_time = timezone.localtime().replace(second=0, microsecond=0)
 
-        elif new_status == CurrentStatusEnum.FINISHED:
-            if record.clock_out_time is None:
-                record.clock_out_time = timezone.localtime().replace(second=0, microsecond=0)           
+    elif new_status == CurrentStatusEnum.FINISHED:
+        if record.clock_out_time is None:
+            record.clock_out_time = timezone.localtime().replace(second=0, microsecond=0)           
 
-        record.save()
+    record.save()
 
-    else:
-        # 在宅・休みの場合:全セッションを初期化
-        sessions = session_model.objects.filter(
-            record=record,
-        )
+    # else:
+    #     # 在宅・休みの場合:全セッションを初期化
+    #     sessions = session_model.objects.filter(
+    #         record=record,
+    #     )
 
-        sessions.update(
-            place=None,
-            start_time=None,
-            end_time=None
-        )
+    #     sessions.update(
+    #         place=None,
+    #         start_time=None,
+    #         end_time=None
+    #     )
 
-        record.work_status = record_status_mapping[new_status]
-        if record.is_work_status_changed_today == False:
-            record.is_work_status_changed_today = _is_changed_today(prev_status, new_status, work_date)
+    #     record.work_status = record_status_mapping[new_status]
+    #     if record.is_work_status_changed_today == False:
+    #         record.is_work_status_changed_today = _is_changed_today(prev_status, new_status, work_date)
 
     record.save()
 
@@ -492,7 +492,7 @@ def staff_current_status_choices():
         (CurrentStatusEnum.BEFORE, "出勤前"),
         (CurrentStatusEnum.WORKING, "勤務中"),
         (CurrentStatusEnum.FINISHED, "退勤済"),
-        (CurrentStatusEnum.ABSENT, "休み"),
+        # (CurrentStatusEnum.ABSENT, "休み"),
     ]
 
 def customer_current_status_choices():
@@ -500,8 +500,8 @@ def customer_current_status_choices():
         (CurrentStatusEnum.BEFORE, "通所前"),
         (CurrentStatusEnum.WORKING, "勤務中"),
         (CurrentStatusEnum.FINISHED, "退勤済"),
-        (CurrentStatusEnum.HOME, "在宅"),
-        (CurrentStatusEnum.ABSENT, "休み"),
+        # (CurrentStatusEnum.HOME, "在宅"),
+        # (CurrentStatusEnum.ABSENT, "休み"),
     ]
 
 def _status_btn_class(status):
@@ -509,8 +509,8 @@ def _status_btn_class(status):
         CurrentStatusEnum.BEFORE:   "btn-success",
         CurrentStatusEnum.WORKING:  "btn-primary",
         CurrentStatusEnum.FINISHED: "btn-secondary",
-        CurrentStatusEnum.HOME:     "btn-success",
-        CurrentStatusEnum.ABSENT:   "btn-danger",
+        # CurrentStatusEnum.HOME:     "btn-success",
+        # CurrentStatusEnum.ABSENT:   "btn-danger",
 
     }.get(status, "btn-outline-secondary")
 
