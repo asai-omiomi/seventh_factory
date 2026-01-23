@@ -12,7 +12,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.db import transaction
 from django.utils import timezone
 from django.contrib import messages
-from app.services.create_records_common import create_records, save_change_history
+from app.services.create_records_common import create_records_by_pattern, create_records_off_day, save_change_history
 from datetime import date
 
 class IndexView(TemplateView):
@@ -626,12 +626,12 @@ def notice_save(request, work_date):
 
 def create_records_view(request, work_date):
     work_date = date.fromisoformat(work_date)
-    create_records(request.user.last_name, work_date)
+    create_records_by_pattern(request.user.last_name, work_date)
     return redirect('info', work_date)  
 
 def create_records_off_day_view(request, work_date):
     work_date = date.fromisoformat(work_date)
-    _create_records_off_day(request.user.last_name, work_date)
+    create_records_off_day(request.user.last_name, work_date)
     return redirect('info', work_date)   
 
 def current_status_edit(request, member_id, work_date):
@@ -644,42 +644,6 @@ def current_status_edit(request, member_id, work_date):
         new_status=int(request.POST["current_status"]),
     )
     return redirect('info', work_date=work_date)
-
-def _create_records_off_day(user_name, work_date):
-    with transaction.atomic():  # まとめてトランザクション
-        # --- Staff ---
-        for staff in StaffModel.objects.all():
-            rcd, created = StaffRecordModel.objects.get_or_create(
-                staff=staff,
-                work_date=work_date,
-                defaults={
-                    'work_status': StaffWorkStatusEnum.OFF,
-                }
-            )
-
-            if created:
-                save_change_history(
-                    user_name=user_name,
-                    record=rcd,
-                    content_text="新規作成"
-                )          
-
-        # --- Customer ---
-        for customer in CustomerModel.objects.all():
-            rcd, created = CustomerRecordModel.objects.get_or_create(
-                customer=customer,
-                work_date=work_date,
-                defaults={
-                    'work_status': CustomerWorkStatusEnum.OFF,
-                }
-            )
-
-            if created:
-                save_change_history(
-                    user_name=user_name,
-                    record=rcd,
-                    content_text="新規作成"
-                )    
 
 def _customer_extra_context(record):
     return {

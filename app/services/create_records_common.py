@@ -2,6 +2,7 @@ from django.db import transaction
 from app.models import StaffModel, CustomerModel, StaffRecordModel, CustomerRecordModel, TransportRecordModel, StaffPatternModel, CustomerPatternModel, StaffSessionPatternModel, CustomerSessionPatternModel, StaffSessionRecordModel, CustomerSessionRecordModel, TransportPatternModel, StaffWorkStatusEnum, CustomerWorkStatusEnum, TransportTypeEnum
 import datetime
 from django.utils import timezone
+import jpholiday
 
 def _create_transports_from_pattern(customer_record, transport_type):
     pattern = TransportPatternModel.objects.filter(
@@ -182,6 +183,15 @@ def _create_records_from_pattern_common(
 
 def create_records(user_name, work_date):
 
+    is_holiday = jpholiday.is_holiday(work_date)
+
+    if is_holiday:
+        create_records_off_day(user_name, work_date)
+    else:
+        create_records_by_pattern(user_name, work_date)
+        
+
+def create_records_by_pattern(user_name, work_date):
     # staff
     _create_records_from_pattern_common(
         user_name=user_name,
@@ -209,3 +219,39 @@ def create_records(user_name, work_date):
         session_record_model=CustomerSessionRecordModel,
         with_transport=True,
     )
+
+def create_records_off_day(user_name, work_date):
+    with transaction.atomic():  # まとめてトランザクション
+        # --- Staff ---
+        for staff in StaffModel.objects.all():
+            rcd, created = StaffRecordModel.objects.get_or_create(
+                staff=staff,
+                work_date=work_date,
+                defaults={
+                    'work_status': StaffWorkStatusEnum.OFF,
+                }
+            )
+
+            if created:
+                save_change_history(
+                    user_name=user_name,
+                    record=rcd,
+                    content_text="新規作成"
+                )          
+
+        # --- Customer ---
+        for customer in CustomerModel.objects.all():
+            rcd, created = CustomerRecordModel.objects.get_or_create(
+                customer=customer,
+                work_date=work_date,
+                defaults={
+                    'work_status': CustomerWorkStatusEnum.OFF,
+                }
+            )
+
+            if created:
+                save_change_history(
+                    user_name=user_name,
+                    record=rcd,
+                    content_text="新規作成"
+                )    

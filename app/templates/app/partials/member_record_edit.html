@@ -31,16 +31,12 @@
                 {% endif %}
             </div>
 
-            <!-- <hr class="toggle-fields my-4"> -->
-
             {% if with_transport %}
                 {% include "app/partials/customer_session_transport_block.html" with session_forms=session_forms morning_transport_form=morning_transport_form return_transport_form=return_transport_form label="勤務セッション" %}
             {% else %}
                 {% include "app/partials/session_block.html" with forms=session_forms label="勤務セッション" %}
             {% endif %}
-            <!-- <hr class="my-4"> -->
 
-            <!-- <hr class="my-4"> -->
             <div>
                 <div>備考：</div>
                 {{ record_form.remarks }}
