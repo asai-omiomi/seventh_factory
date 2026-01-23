@@ -14,29 +14,38 @@
         <div class="mb-3">日付: {{ work_date }}</div>
 
         <div class="work-fields">
-            <div>勤務形態： {{ record_form.work_status }}</div>
-
-            <div class="toggle-fields">
+            <div>
+                勤務形態： {{ record_form.work_status }}
                 <hr class="my-4">
-                <div>出勤時間：{{ record_form.clock_in_time }}</div>
-                <div class="mt-2">退勤時間：{{ record_form.clock_out_time }}</div>
             </div>
 
-            <hr class="toggle-fields my-4">
+            <div class="toggle-fields mt-2">
+                {% if record_form.clock_in_time.value %}
+                    <div>出勤時間：{{ record_form.clock_in_time }}</div>
+                {% endif %}
+                {% if record_form.clock_out_time.value %}
+                    <div class="mt-2">退勤時間：{{ record_form.clock_out_time }}</div>
+                {% endif %}
+                {% if record_form.clock_in_time.value or record_form.clock_out_time.value %}
+                <hr class="my-4">
+                {% endif %}
+            </div>
+
+            <!-- <hr class="toggle-fields my-4"> -->
 
             {% if with_transport %}
                 {% include "app/partials/customer_session_transport_block.html" with session_forms=session_forms morning_transport_form=morning_transport_form return_transport_form=return_transport_form label="勤務セッション" %}
             {% else %}
                 {% include "app/partials/session_block.html" with forms=session_forms label="勤務セッション" %}
             {% endif %}
+            <!-- <hr class="my-4"> -->
 
-            <hr class="my-4">
+            <!-- <hr class="my-4"> -->
             <div>
                 <div>備考：</div>
                 {{ record_form.remarks }}
+                <hr class="my-4">
             </div>
-
-            <hr class="my-4">
         </div>
 
         <button class="btn-sm" type="submit" name="action" value="save">保存</button>
