@@ -27,8 +27,8 @@ class CurrentStatusEnum(models.IntegerChoices):
     BEFORE   = 0, "出勤前 / 通所前"
     WORKING  = 1, "勤務中"
     FINISHED = 5, "退勤済"
-    # HOME     = 8, "在宅"
-    # ABSENT   = 9, "休み"
+    HOME     = 8, "在宅"
+    ABSENT   = 9, "休み"
 
 class TransportTypeEnum(models.IntegerChoices):
     MORNING = 1, '朝'
