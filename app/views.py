@@ -12,7 +12,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.db import transaction
 from django.utils import timezone
 from django.contrib import messages
-from app.services.create_records_common import create_records_by_pattern, create_records_off_day, save_change_history
+from app.services.create_records_common import create_records_by_pattern, create_records_off_day, save_change_history, create_records
 from datetime import date
 
 class IndexView(TemplateView):
@@ -171,20 +171,18 @@ def _build_info(work_date):
 
     customer_records = CustomerRecordModel.objects.filter(work_date=work_date).order_by('customer__order')
 
-    if not staff_records and not customer_records:
-        return []
-
     info = []
 
     # 勤務地別を追加
     _append_place_info(staff_records, customer_records, work_date, info)
-
     # 勤務地なしを追加
     _append_no_place_info(staff_records, customer_records, info)
     # 在宅を追加
     _append_home_info(customer_records, info)
     # 休みを追加
     _append_off_info(staff_records, customer_records, info)
+    # 未設定を追加
+    _append_unregistered_info(work_date, info)
 
     return info
 
@@ -217,6 +215,64 @@ def _append_place_info(staff_records, customer_records, work_date, info):
             'customer_list':customer_list,
             'remarks': remarks,
         })  
+
+def _append_unregistered_info(work_date, info):
+    # その日のレコードに存在する staff / customer のID
+    staff_record_ids = set(
+        StaffRecordModel.objects
+        .filter(work_date=work_date)
+        .values_list('staff_id', flat=True)
+    )
+
+    customer_record_ids = set(
+        CustomerRecordModel.objects
+        .filter(work_date=work_date)
+        .values_list('customer_id', flat=True)
+    )
+
+    # StaffRecord が存在しない staff
+    staff_list = []
+    for staff in StaffModel.objects.exclude(id__in=staff_record_ids):
+        staff_list.append({
+            'id': staff.id,
+            'name': {
+                'text': staff.name,
+                'changed': False,
+            },
+            'remarks': {
+                'text': '',
+                'changed': False,
+            },
+            'change_history': [],
+        })
+
+    # CustomerRecord が存在しない customer
+    customer_list = []
+    for customer in CustomerModel.objects.exclude(id__in=customer_record_ids):
+        customer_list.append({
+            'id': customer.id,
+            'name': {
+                'text': customer.name,
+                'changed': False,
+            },
+            'remarks': {
+                'text': '',
+                'changed': False,
+            },
+            'change_history': [],
+        })
+
+    if not staff_list and not customer_list:
+        return
+
+    info.append({
+        'place_id': -99,
+        'place_name': "未設定",
+        'color': "table-light",
+        'staff_list': staff_list,
+        'customer_list': customer_list,
+        'remarks': "",
+    })
 
 def _has_any_place_session(rcd, session_model):
     """
@@ -492,7 +548,6 @@ def staff_current_status_choices():
         (CurrentStatusEnum.BEFORE, "出勤前"),
         (CurrentStatusEnum.WORKING, "勤務中"),
         (CurrentStatusEnum.FINISHED, "退勤済"),
-        # (CurrentStatusEnum.ABSENT, "休み"),
     ]
 
 def customer_current_status_choices():
@@ -533,6 +588,7 @@ def _build_status_buttons_modal(current_status_choices, current_status):
 def _build_customer_extra_lines(rcd):
 
     text = ""
+    changed = False
 
     for t_type in TransportTypeEnum:
         transport = TransportRecordModel.objects.filter(
@@ -555,10 +611,12 @@ def _build_customer_extra_lines(rcd):
                 text += f" {transport.remarks}"
 
         text += " "
+        if transport.is_changed_today:
+            changed = True 
 
     return {
         'text': text,
-        'changed': transport.is_changed_today,        
+        'changed': changed,        
     }
     
 def _build_remarks(place=None, work_date=None):
@@ -680,20 +738,42 @@ def _record_edit_common(
 ):
     member = get_object_or_404(member_model, pk=member_id)
 
-    record, created = record_model.objects.get_or_create(
+    record = record_model.objects.filter(
         **{
             member_field: member,
             'work_date': work_date,
         }
-    )
+    ).first()
+
+    is_new_record = False
+
+    # 無ければ仮オブジェクト（休み）
+    if record is None:
+        if member_field == 'staff':
+            work_status = StaffWorkStatusEnum.OFF
+        else:
+            work_status = CustomerWorkStatusEnum.OFF
+    
+        record = record_model(
+            **{
+                member_field: member,
+                'work_date': work_date,
+                'work_status': work_status,
+            }
+        )
+
+        is_new_record = True
 
     record_form = record_form_class(instance=record)
 
-    existing_sessions = list(
-        session_model.objects
-        .filter(record=record)
-        .order_by('session_no')
-    )
+    if is_new_record:
+        existing_sessions = []
+    else:
+        existing_sessions = list(
+            session_model.objects
+            .filter(record=record)
+            .order_by('session_no')
+        )
 
     session_forms = _build_session_forms(
         existing_sessions,
@@ -840,13 +920,21 @@ def _record_save_common(
 
     member = get_object_or_404(member_model, pk=member_id)
 
-    # 既存レコードを取得（なければ None）
+    # 既存レコードを取得
     record = record_model.objects.filter(
         **{
             member_field: member,
             'work_date': work_date,
         }
     ).first()
+
+    if record is None:
+        record = record_model(
+            **{
+                member_field: member,
+                'work_date': work_date,
+            }
+        )
 
     change_text = ""
     
@@ -1545,7 +1633,7 @@ def _build_transport_form(obj, transport_type, prefix, form_class, *, is_record=
 
     instance = None
 
-    if obj:
+    if obj and obj.pk:
         if is_record:
             instance = TransportRecordModel.objects.filter(
                 record=obj,

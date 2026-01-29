@@ -20,10 +20,6 @@ class Command(BaseCommand):
         for i in range(1, days + 1):
             target_date = today + timedelta(days=i)
 
-            # 重複防止（重要）
-            if StaffRecordModel.objects.filter(work_date=target_date).exists():
-                continue
-
             create_records("自動実行", target_date)
 
         self.stdout.write(self.style.SUCCESS("自動作成完了"))

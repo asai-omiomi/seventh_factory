@@ -14,18 +14,25 @@ def _create_transports_from_pattern(customer_record, transport_type):
     if not pattern:
         # パターンがない場合は何もしない
         return
+    
+    # すでに TransportRecord が存在する場合は何もしない
+    exists = TransportRecordModel.objects.filter(
+        record=customer_record,
+        transport_type=transport_type
+    ).exists()
+
+    if exists:
+        return
 
     with transaction.atomic():
-        TransportRecordModel.objects.update_or_create(
+        TransportRecordModel.objects.create(
             customer = customer_record.customer,
             record=customer_record,
             transport_type = transport_type,
-            defaults={
-                'transport_means': pattern.transport_means,
-                'place': pattern.place,
-                'staff': pattern.staff,
-                'remarks': pattern.remarks,
-            }
+            transport_means=pattern.transport_means,
+            place=pattern.place,
+            staff=pattern.staff,
+            remarks=pattern.remarks,
         )   
 
 def _get_day(work_date):
@@ -63,6 +70,24 @@ def _create_record_from_pattern_common(
     with_transport=False,
 ):
     with transaction.atomic():
+        # 既存チェック + 作成
+        rcd, created = record_model.objects.get_or_create(
+            **{
+                member_field: member,
+                'work_date': work_date,
+            },
+            defaults={
+                'work_status': off_value,
+                'remarks': "",
+            }
+        )
+
+        # すでに存在するなら何もしない
+        if not created:
+            return rcd
+        
+         # ---- ここから「新規作成時のみ」 ----
+        
         # 勤務ステータス解決
         prcd = _get_pattern_record(
             member=member,
@@ -70,18 +95,11 @@ def _create_record_from_pattern_common(
             pattern_model=work_status_pattern_model,
             member_field=member_field,
         )
-
-        # レコード作成 or 更新
-        rcd, _ = record_model.objects.update_or_create(
-            **{
-                member_field: member,
-                'work_date': work_date,
-            },
-            defaults={
-                'work_status': prcd.work_status if prcd else off_value,
-                'remarks': prcd.remarks if prcd else ""
-            }
-        )
+        
+        if prcd:
+            rcd.work_status = prcd.work_status
+            rcd.remarks = prcd.remarks
+            rcd.save()
 
         # 変更履歴
         save_change_history(
@@ -141,14 +159,21 @@ def _create_work_sessions_from_pattern_common(
 
     with transaction.atomic():
         for ptn in patterns:
-            session_record_model.objects.update_or_create(
+            # すでに同じ session_no のセッションが存在する場合は何もしない
+            exists = session_record_model.objects.filter(
                 record=record,
                 session_no=ptn.session_no,
-                defaults={
-                    'place': ptn.place,
-                    'start_time': ptn.start_time,
-                    'end_time': ptn.end_time,
-                }
+            ).exists()
+
+            if exists:
+                continue
+
+            session_record_model.objects.create(
+                record=record,
+                session_no=ptn.session_no,
+                place=ptn.place,
+                start_time=ptn.start_time,
+                end_time=ptn.end_time,
             )
 
 def _create_records_from_pattern_common(
