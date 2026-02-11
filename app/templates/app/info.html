@@ -11,6 +11,9 @@
     .nav-tabs>.nav-item>.nav-link {
         padding: 0.4rem !important;
     }
+    .calendar_icon_img{
+        width: 32px;
+    }
 </style>
 
 <script>
@@ -67,11 +70,21 @@
         <form id="date-form" onsubmit="return false;">
             {{ calendar_form.date }}
         </form>
-        <form action="{% url 'info' %}" method="get">
+        <form action="{% url 'info' %}" method="get" class="me-2">
             <button class="btn-sm" type="submit">
                 本日
             </button>
         </form>
+        
+        {% if request.user.is_superuser %}
+        <a href="https://teamup.com/ks8cprbuewtg2jpd1d" target="_blank">
+        {% else %}
+        <a href="https://teamup.com/ks24at7mjo2kczk1zq" target="_blank">
+        {% endif %}
+            <img src="{% static 'images/calendar.png' %}"
+            alt=""
+            class="calendar_icon_img">
+        </a>
     </div>
 
     <div class="table-responsive-md mt-2">
