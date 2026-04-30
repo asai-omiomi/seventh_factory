@@ -168,7 +168,6 @@
                         </td>
                     </tr>
                     {% for place_info in info %}
-                    {% if place_info.staff_list or place_info.customer_list %}
                     <!-- 場所名 -->
                     <tr class="{{place_info.color}}">
                         <td class="fs-5 fw-bold">
@@ -205,7 +204,12 @@
                         </td>
                     </tr>
                     {% endfor %}
-                    {% endif %}
+                    <!-- スタッフも利用者もいない場合、高さを持たせた空行を入れる -->
+                    {% if not place_info.staff_list and not place_info.customer_list %}
+                    <tr>
+                        <td style="height: 3em;">&nbsp;</td>
+                    </tr>
+                    {% endif %}                    
                     {% endfor %}
                     </tbody>
                 </table>
