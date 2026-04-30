@@ -408,7 +408,7 @@ class PlaceRemarksModel(models.Model):
     work_date = models.DateField()
 
     remarks = models.CharField(
-        max_length=100,
+        max_length=500,
         blank=True,
         default=""
     )
