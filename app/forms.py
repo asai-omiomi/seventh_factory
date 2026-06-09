@@ -6,12 +6,12 @@ import datetime
 class StaffForm(forms.ModelForm):
     class Meta:
         model = StaffModel
-        fields = ['name']
+        fields = ['name','is_resigned']
 
 class CustomerForm(forms.ModelForm):
     class Meta:
         model = CustomerModel
-        fields = ['name']
+        fields = ['name','is_resigned']
 
 MEMBER_COMMON_FIELDS = [
     'work_status',

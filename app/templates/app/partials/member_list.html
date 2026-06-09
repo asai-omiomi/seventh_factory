@@ -20,13 +20,16 @@
 
                     <tbody>
                         {% for member in members %}
-                        <tr>
+                        <tr {% if member.is_resigned %}class="table-secondary text-muted"{% endif %}>
                             <td class="width-content-fit">
                                 <button class="btn-sm" type="submit" name="up" value="{{ member.pk }}">↑</button>
                                 <button class="btn-sm" type="submit" name="down" value="{{ member.pk }}">↓</button>
                             </td>
 
-                            <td>{{ member.name }}</td>
+                            <td>
+                                {{ member.name }}
+                                {% if member.is_resigned %}<span class="ms-1">({{ resigned_label }})</span>{% endif %}
+                            </td>
 
                             <td class="width-content-fit">
                                 <button class="btn-sm" type="submit" name="edit" value="{{ member.pk }}">編集</button>

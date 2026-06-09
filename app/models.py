@@ -57,6 +57,10 @@ class BaseMemberModel(models.Model):
         null=False,
     )
 
+    is_resigned = models.BooleanField(
+        default=False
+    )
+
     class Meta:
         abstract = True
         ordering = ['order']

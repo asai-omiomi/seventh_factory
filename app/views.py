@@ -167,9 +167,9 @@ def _is_changed(prev, new):
 
 def _build_info(work_date):
 
-    staff_records = StaffRecordModel.objects.filter(work_date=work_date).order_by('staff__order')
+    staff_records = StaffRecordModel.objects.filter(work_date=work_date, staff__is_resigned=False).order_by('staff__order')
 
-    customer_records = CustomerRecordModel.objects.filter(work_date=work_date).order_by('customer__order')
+    customer_records = CustomerRecordModel.objects.filter(work_date=work_date, customer__is_resigned=False).order_by('customer__order')
 
     info = []
 
@@ -232,7 +232,7 @@ def _append_unregistered_info(work_date, info):
 
     # StaffRecord が存在しない staff
     staff_list = []
-    for staff in StaffModel.objects.exclude(id__in=staff_record_ids):
+    for staff in StaffModel.objects.exclude(id__in=staff_record_ids).filter(is_resigned=False):
         staff_list.append({
             'id': staff.id,
             'name': {
@@ -248,7 +248,7 @@ def _append_unregistered_info(work_date, info):
 
     # CustomerRecord が存在しない customer
     customer_list = []
-    for customer in CustomerModel.objects.exclude(id__in=customer_record_ids):
+    for customer in CustomerModel.objects.exclude(id__in=customer_record_ids).filter(is_resigned=False):
         customer_list.append({
             'id': customer.id,
             'name': {
