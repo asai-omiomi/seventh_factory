@@ -21,10 +21,10 @@
 
             <div class="toggle-fields mt-2">
                 {% if record_form.clock_in_time.value %}
-                    <div>出勤時間：{{ record_form.clock_in_time }}</div>
+                <div>出勤時間：{{ record_form.clock_in_time }}</div>
                 {% endif %}
                 {% if record_form.clock_out_time.value %}
-                    <div class="mt-2">退勤時間：{{ record_form.clock_out_time }}</div>
+                <div class="mt-2">退勤時間：{{ record_form.clock_out_time }}</div>
                 {% endif %}
                 {% if record_form.clock_in_time.value or record_form.clock_out_time.value %}
                 <hr class="my-4">
@@ -32,9 +32,9 @@
             </div>
 
             {% if with_transport %}
-                {% include "app/partials/customer_session_transport_block.html" with session_forms=session_forms morning_transport_form=morning_transport_form return_transport_form=return_transport_form label="勤務セッション" %}
+            {% include "app/partials/customer_session_transport_block.html" with session_forms=session_forms morning_transport_form=morning_transport_form return_transport_form=return_transport_form label="勤務セッション" %}
             {% else %}
-                {% include "app/partials/session_block.html" with forms=session_forms label="勤務セッション" %}
+            {% include "app/partials/session_block.html" with forms=session_forms label="勤務セッション" %}
             {% endif %}
 
             <div>
@@ -44,10 +44,20 @@
             </div>
         </div>
 
+        <div class="form-check mt-2">
+            <input class="form-check-input" type="checkbox" name="reflect_pattern" id="reflect_pattern" value="on" style="border: 1px solid #333;">
+            <label class="form-check-label" for="reflect_pattern">
+                今後、同じ曜日の勤務は、この内容を使って作成する（作成済みの勤務データには影響ありません）
+            </label>
+        </div>
+
+        <hr class="my-4">
+
         <button class="btn-sm" type="submit" name="action" value="save">保存</button>
         <button class="btn-sm" type="submit" name="action" value="cancel" formnovalidate>
             キャンセル
         </button>
+
     </form>
 </div>
 

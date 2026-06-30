@@ -880,6 +880,8 @@ def staff_record_save(request, staff_id, work_date):
         session_form_class=StaffSessionRecordForm,
         session_model=StaffSessionRecordModel,
         member_field='staff',
+        pattern_model=StaffPatternModel,
+        pattern_session_model=StaffSessionPatternModel,
     )    
 
 #################################################
@@ -898,6 +900,9 @@ def customer_record_save(request, customer_id, work_date):
         session_model=CustomerSessionRecordModel,
         member_field='customer',
         extra_save_func=_customer_record_extra_save,
+        pattern_model=CustomerPatternModel,
+        pattern_session_model=CustomerSessionPatternModel,
+        reflect_extra_func=_reflect_customer_transport_pattern,
     )
 
 def _record_save_common(
@@ -912,6 +917,9 @@ def _record_save_common(
     session_model,
     member_field,           # 'staff' or 'customer'
     extra_save_func=None,   # 送迎など
+    pattern_model=None,  
+    pattern_session_model=None, 
+    reflect_extra_func=None, 
     ):
     assert request.method == 'POST'
 
@@ -1043,6 +1051,37 @@ def _record_save_common(
         if extra_change_text and change_history_only_basic == False:
             change_text += extra_change_text
 
+     # パターン登録への反映
+    if request.POST.get('reflect_pattern') and pattern_model and pattern_session_model:
+        weekday_value = _weekday_value_from_workdate(work_date)
+
+        pattern_model.objects.update_or_create(
+            **{member_field: member, 'weekday': weekday_value},
+            defaults={
+                'work_status': record.work_status,
+                'remarks': record.remarks,
+            }
+        )
+
+        for i in range(WORK_SESSION_COUNT):
+            session_no = i + 1
+            session = session_model.objects.filter(
+                record=record, session_no=session_no
+            ).first()
+
+            pattern_session_model.objects.update_or_create(
+                **{member_field: member, 'weekday': weekday_value, 'session_no': session_no},
+                defaults={
+                    'place': session.place if session else None,
+                    'start_time': session.start_time if session else None,
+                    'end_time': session.end_time if session else None,
+                }
+            )
+
+        # ↓ 追加：Customerの送迎パターン反映
+        if reflect_extra_func:
+            reflect_extra_func(member, weekday_value, record)
+
     if change_text: 
         save_change_history(
             request.user.last_name,
@@ -1051,6 +1090,30 @@ def _record_save_common(
         )
 
     return redirect('info', work_date)
+
+def _weekday_value_from_workdate(work_date):
+    if isinstance(work_date, str):
+        work_date = date.fromisoformat(work_date)
+    return work_date.weekday() + 1  # Python: 月=0 → WeekdayEnum: 月=1
+
+def _reflect_customer_transport_pattern(customer, weekday_value, record):
+    for t_type in TransportTypeEnum:
+        transport = TransportRecordModel.objects.filter(
+            record=record,
+            transport_type=t_type,
+        ).first()
+
+        TransportPatternModel.objects.update_or_create(
+            customer=customer,
+            weekday=weekday_value,
+            transport_type=t_type,
+            defaults={
+                'transport_means': transport.transport_means if transport else None,
+                'place': transport.place if transport else '',
+                'staff': transport.staff if transport else None,
+                'remarks': transport.remarks if transport else '',
+            }
+        )
 
 def _build_session_text(place, start_time, end_time):
     text_list = []
