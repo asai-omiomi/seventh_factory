@@ -126,6 +126,23 @@ def _update_session_current_status(
             end_time=None
         )
 
+        # 利用者の場合は送迎情報も初期化
+        if member_type == "customer":
+            transports = TransportRecordModel.objects.filter(record=record)
+
+            for transport in transports:
+                if transport.is_changed_today == False:
+                    transport.is_changed_today = _is_changed_today(
+                        [transport.transport_means, transport.place, transport.staff, transport.remarks],
+                        [None, '', None, ''],
+                        work_date
+                    )
+                transport.transport_means = None
+                transport.place = ''
+                transport.staff = None
+                transport.remarks = ''
+                transport.save()
+
         record.work_status = record_status_mapping[new_status]
         if record.is_work_status_changed_today == False:
             record.is_work_status_changed_today = _is_changed_today(prev_status, new_status, work_date)
