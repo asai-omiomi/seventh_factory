@@ -3,15 +3,31 @@ from django import forms
 from .models import StaffModel, StaffRecordModel, CustomerModel, CustomerRecordModel, StaffPatternModel, CustomerPatternModel, TransportPatternModel,StaffSessionPatternModel, CustomerSessionPatternModel, TransportRecordModel,PlaceRemarksModel,StaffSessionRecordModel, CustomerSessionRecordModel, SysAdModel, DayModel, TransportTypeEnum
 import datetime
    
-class StaffForm(forms.ModelForm):
+class MemberForm(forms.ModelForm):
     class Meta:
-        model = StaffModel
-        fields = ['name','is_resigned']
+        fields = ['name', 'is_resigned', 'resigned_date']
+        widgets = {
+            'resigned_date': forms.DateInput(
+                attrs={'type': 'date'}, format='%Y-%m-%d'
+            ),
+        }
 
-class CustomerForm(forms.ModelForm):
-    class Meta:
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('is_resigned'):
+            if not cleaned.get('resigned_date'):
+                self.add_error('resigned_date', '退職日を入力してください')
+        else:
+            cleaned['resigned_date'] = None   # 退職でなければ退職日は空にする
+        return cleaned
+
+class StaffForm(MemberForm):
+    class Meta(MemberForm.Meta):
+        model = StaffModel
+
+class CustomerForm(MemberForm):
+    class Meta(MemberForm.Meta):
         model = CustomerModel
-        fields = ['name','is_resigned']
 
 MEMBER_COMMON_FIELDS = [
     'work_status',

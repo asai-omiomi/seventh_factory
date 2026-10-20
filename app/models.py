@@ -1,6 +1,7 @@
 # models.py
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.db.models import Q
 
 WORK_SESSION_COUNT = 3
 
@@ -43,8 +44,13 @@ class WeekdayEnum(models.IntegerChoices):
     SAT = 6, '土'
     SUN = 7, '日'
 
-from django.db import models
-
+class MemberQuerySet(models.QuerySet):
+    def active_on(self, target_date):
+        """target_date 時点で在籍している人"""
+        return self.filter(
+            Q(is_resigned=False) | Q(resigned_date__gte=target_date)
+        )
+    
 class BaseMemberModel(models.Model):
     name = models.CharField(
         max_length=20,
@@ -60,6 +66,13 @@ class BaseMemberModel(models.Model):
     is_resigned = models.BooleanField(
         default=False
     )
+
+    resigned_date = models.DateField(
+        blank=True,
+        null=True
+    )
+
+    objects = MemberQuerySet.as_manager()
 
     class Meta:
         abstract = True

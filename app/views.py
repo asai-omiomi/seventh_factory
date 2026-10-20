@@ -14,6 +14,7 @@ from django.utils import timezone
 from django.contrib import messages
 from app.services.create_records_common import create_records_by_pattern, create_records_off_day, save_change_history, create_records
 from datetime import date
+from django.db.models import Q
 
 class IndexView(TemplateView):
     template_name = 'app/index.html'
@@ -184,9 +185,25 @@ def _is_changed(prev, new):
 
 def _build_info(work_date):
 
-    staff_records = StaffRecordModel.objects.filter(work_date=work_date, staff__is_resigned=False).order_by('staff__order')
+    staff_records = (
+        StaffRecordModel.objects
+        .filter(work_date=work_date)
+        .filter(
+            Q(staff__is_resigned=False) |
+            Q(staff__resigned_date__gte=work_date)
+        )
+        .order_by('staff__order')
+    )
 
-    customer_records = CustomerRecordModel.objects.filter(work_date=work_date, customer__is_resigned=False).order_by('customer__order')
+    customer_records = (
+        CustomerRecordModel.objects
+        .filter(work_date=work_date)
+        .filter(
+            Q(customer__is_resigned=False) |
+            Q(customer__resigned_date__gte=work_date)
+        )
+        .order_by('customer__order')
+    )
 
     info = []
 
@@ -249,7 +266,7 @@ def _append_unregistered_info(work_date, info):
 
     # StaffRecord が存在しない staff
     staff_list = []
-    for staff in StaffModel.objects.exclude(id__in=staff_record_ids).filter(is_resigned=False):
+    for staff in StaffModel.objects.active_on(work_date).exclude(id__in=staff_record_ids):
         staff_list.append({
             'id': staff.id,
             'name': {
@@ -265,7 +282,7 @@ def _append_unregistered_info(work_date, info):
 
     # CustomerRecord が存在しない customer
     customer_list = []
-    for customer in CustomerModel.objects.exclude(id__in=customer_record_ids).filter(is_resigned=False):
+    for customer in CustomerModel.objects.active_on(work_date).exclude(id__in=customer_record_ids):
         customer_list.append({
             'id': customer.id,
             'name': {
